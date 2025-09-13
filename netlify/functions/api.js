@@ -8,8 +8,8 @@ const {
   ValidationError,
   AuthenticationError,
   validateRequired,
-  validatePhoneNumber,
-  validatePIN,
+  validatePhoneNumberOrThrow, // ใช้ชื่อที่ถูกต้อง
+  validatePINOrThrow, // ใช้ชื่อที่ถูกต้อง
 } = require("../../utils/errors");
 
 // Services
@@ -200,7 +200,7 @@ async function handleSync(event) {
   validateRequired(username, "username");
   validateRequired(password, "password");
 
-  // Validate field formats
+  // Validate field formats - ใช้ชื่อฟังก์ชันที่ถูกต้อง
   validatePhoneNumberOrThrow(username);
   validatePINOrThrow(password);
 
