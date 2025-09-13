@@ -23,12 +23,12 @@
     "postinstall": "echo '📦 Installation complete. Run npm run setup-db to initialize database.'"
   },
   "keywords": [
-    "prima789", 
-    "liff", 
-    "line", 
-    "member-card", 
-    "netlify", 
-    "serverless", 
+    "prima789",
+    "liff",
+    "line",
+    "member-card",
+    "netlify",
+    "serverless",
     "postgresql",
     "neon",
     "production"
@@ -44,8 +44,8 @@
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
-    "netlify-cli": "^17.0.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.6.1",
+    "netlify-cli": "^17.0.0"
   },
   "repository": {
     "type": "git",
