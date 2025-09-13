@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const LINE_API_VERIFY_URL = "https://api.line.me/oauth2/v2.1/verify";
-const LIFF_CHANNEL_ID = process.env.LIFF_CHANNEL_ID;
+const LIFF_ID = process.env.LIFF_ID;
 
 // ฟังก์ชันสำหรับตรวจสอบ ID Token
 export async function verifyLineIdToken(idToken) {
@@ -11,7 +11,7 @@ export async function verifyLineIdToken(idToken) {
 
   const params = new URLSearchParams();
   params.append("id_token", idToken);
-  params.append("client_id", LIFF_CHANNEL_ID);
+  params.append("client_id", LIFF_ID);
 
   try {
     const response = await axios.post(LINE_API_VERIFY_URL, params, {
