@@ -1,7 +1,7 @@
 const axios = require("axios");
 
 const LINE_API_VERIFY_URL = "https://api.line.me/oauth2/v2.1/verify";
-const LIFF_ID = process.env.LIFF_ID; // เก็บเป็น Environment Variable
+const liffId = process.env.LIFF_ID; // เก็บเป็น Environment Variable
 
 async function verifyLineIdToken(idToken) {
   if (!idToken) {
@@ -10,7 +10,7 @@ async function verifyLineIdToken(idToken) {
 
   const params = new URLSearchParams();
   params.append("id_token", idToken);
-  params.append("client_id", LIFF_ID);
+  params.append("client_id", liffId);
 
   try {
     const response = await axios.post(LINE_API_VERIFY_URL, params, {
