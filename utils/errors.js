@@ -146,8 +146,8 @@ function validatePIN(pin) {
  * @throws {ValidationError} If phone number is invalid
  */
 function validatePhoneNumberOrThrow(phone) {
-  if (!phone || typeof phone !== "string") {
-    throw new ValidationError("Phone number is required", "username");
+  if (!validatePhoneNumber(phone)) {
+    throw new ValidationError("Invalid phone number format", "username");
   }
 
   if (!validatePhoneNumber(phone)) {
@@ -164,8 +164,8 @@ function validatePhoneNumberOrThrow(phone) {
  * @throws {ValidationError} If PIN is invalid
  */
 function validatePINOrThrow(pin) {
-  if (!pin || typeof pin !== "string") {
-    throw new ValidationError("PIN is required", "password");
+  if (!validatePIN(pin)) {
+    throw new ValidationError("PIN must be exactly 4 digits", "password");
   }
 
   if (!validatePIN(pin)) {
@@ -249,6 +249,8 @@ function createErrorResponse(error, defaultStatus = 500) {
 
 module.exports = {
   // Error classes
+  validatePhoneNumberOrThrow,
+  validatePINOrThrow,
   ValidationError,
   AuthenticationError,
   AuthorizationError,
