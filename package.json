@@ -3,6 +3,11 @@
   "version": "1.0.0",
   "description": "Prima789 LIFF Backend for Member Card with User Input Form",
   "main": "netlify/functions/api.js",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+
   "scripts": {
     "dev": "netlify dev",
     "dev:clean": "rm -rf .netlify && npm run dev",
