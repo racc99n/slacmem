@@ -1,14 +1,12 @@
+# netlify.toml - Production-ready Netlify configuration
+
 [build]
   functions = "netlify/functions"
   publish = "public"
   command = "npm run build"
 
+# API redirects
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"
-  status = 200
-
-[[redirects]]
-  from = "/*"
-  to = "/prima789-liff-member-card.html"
   status = 200
