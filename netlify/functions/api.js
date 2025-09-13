@@ -3,6 +3,40 @@ const { io } = require("socket.io-client");
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
+// =================================================================
+//                 ส่วนของ Middleware และ API Logic
+// =================================================================
+
+/**
+ * TODO: Implement your real LINE Token validation logic here.
+ * นี่คือ Middleware จำลองสำหรับตรวจสอบ LINE ID Token
+ * @param {object} headers - Headers จาก request ของ Netlify Function
+ * @returns {Promise<string>} - คืนค่า lineUserId ถ้า Token ถูกต้อง
+ * @throws {Error} - ถ้า Token ไม่ถูกต้องหรือไม่พบ
+ */
+async function authMiddleware(headers) {
+  // ในสถานการณ์จริง คุณต้องดึง 'Authorization' header มา
+  // const token = headers.authorization?.split(' ')[1];
+  // if (!token) {
+  //     throw new Error('No authorization token provided');
+  // }
+  //
+  // ... ทำการ verify token กับ LINE ...
+  // const decoded = await verifyLineToken(token);
+  // return decoded.sub; // .sub คือ lineUserId
+
+  // ---- สำหรับการทดสอบตอนนี้, เราจะใช้ค่าจำลองไปก่อน ----
+  // ดึง lineUserId จาก header พิเศษที่เราจะส่งจาก Frontend
+  const mockLineUserId = headers["x-mock-line-user-id"];
+  if (!mockLineUserId) {
+    // ถ้าเป็นการเรียกจริงที่ไม่มี header นี้ ให้โยน error
+    // ในอนาคตเมื่อใช้ Token จริง ให้ลบส่วนนี้ออก
+    throw new Error("Authorization required");
+  }
+  console.log(`Authenticated mock user: ${mockLineUserId}`);
+  return mockLineUserId;
+}
+
 /**
  * ฟังก์ชันยืนยันตัวตนและดึงข้อมูลจาก Prima789 ผ่าน Socket.IO
  * @param {string} phone - เบอร์โทรศัพท์
@@ -87,30 +121,35 @@ function authenticateAndGetData(phone, pin) {
 //                 MAIN HANDLER (ส่วนนี้ไม่ต้องแก้)
 // =================================================================
 exports.handler = async (event, context) => {
-  const path = event.path.replace(/\.netlify\/functions\/[^/]+/, "");
-  const segments = path.split("/").filter(Boolean);
   const headers = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers":
+      "Content-Type, Authorization, x-mock-line-user-id",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Content-Type": "application/json",
   };
+
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers };
   }
 
   try {
-    if (
-      event.httpMethod === "GET" &&
-      segments[1] === "user-status" &&
-      segments[2]
-    ) {
-      const lineUserId = segments[2];
+    // --- เรียกใช้ Middleware ของเราก่อน ---
+    // เราจะส่ง lineUserId ผ่าน header ชื่อ 'x-mock-line-user-id' จาก Frontend เพื่อทดสอบ
+    const lineUserId = await authMiddleware(event.headers);
+
+    // --- เริ่มการ Routing แบบ Manual ---
+    const path = event.path.replace(/\.netlify\/functions\/[^/]+/, "");
+
+    // GET /api/status (เปลี่ยนจาก user-status)
+    if (event.httpMethod === "GET" && path.startsWith("/status")) {
       const { rows } = await pool.query(
         "SELECT prima_username FROM user_mappings WHERE line_user_id = $1",
         [lineUserId]
       );
+
       if (rows.length > 0) {
+        // **สำคัญ:** ในอนาคตคุณสามารถเพิ่มการดึงข้อมูลล่าสุดจาก prima789 ที่นี่ได้
         return {
           statusCode: 200,
           headers,
@@ -121,16 +160,17 @@ exports.handler = async (event, context) => {
         };
       } else {
         return {
-          statusCode: 404,
+          statusCode: 200,
           headers,
-          body: JSON.stringify({ synced: false, message: "User not synced" }),
+          body: JSON.stringify({ synced: false }),
         };
       }
     }
 
-    if (event.httpMethod === "POST" && segments[1] === "sync-account") {
-      const { lineUserId, username, password } = JSON.parse(event.body);
-      if (!lineUserId || !username || !password) {
+    // POST /api/sync (เปลี่ยนจาก sync-account)
+    if (event.httpMethod === "POST" && path.startsWith("/sync")) {
+      const { username, password } = JSON.parse(event.body);
+      if (!username || !password) {
         return {
           statusCode: 400,
           headers,
@@ -154,25 +194,38 @@ exports.handler = async (event, context) => {
         [lineUserId, memberData.primaUsername]
       );
 
-      const finalData = {
-        primaUsername: memberData.primaUsername,
-        memberTier: "Standard",
-        creditBalance: memberData.creditBalance,
-        firstName: memberData.firstName,
-        lastName: memberData.lastName,
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          synced: true,
+          memberData: {
+            primaUsername: memberData.primaUsername,
+            creditBalance: memberData.creditBalance,
+            firstName: memberData.firstName,
+            lastName: memberData.lastName,
+          },
+        }),
       };
-
-      return { statusCode: 200, headers, body: JSON.stringify(finalData) };
     }
 
+    // ถ้าไม่มี Route ไหนตรงเลย
     return {
       statusCode: 404,
       headers,
       body: JSON.stringify({ message: "Route not found" }),
     };
   } catch (error) {
-    console.error("API Error:", error);
+    console.error("API Handler Error:", error);
     const errorMessage = error.message || "Internal Server Error";
+    // ถ้าเป็น Error จาก Middleware
+    if (error.message === "Authorization required") {
+      return {
+        statusCode: 401,
+        headers,
+        body: JSON.stringify({ message: errorMessage }),
+      };
+    }
     return {
       statusCode: 500,
       headers,
