@@ -40,12 +40,13 @@
   "license": "ISC",
   "dependencies": {
     "@neondatabase/serverless": "^1.0.1",
+    "@netlify/blobs": "^10.0.10",
     "axios": "^1.7.7",
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
     "dotenv": "^16.6.1",
-    "netlify-cli": "^17.0.0"
+    "netlify-cli": "^23.5.1"
   },
   "repository": {
     "type": "git",
