@@ -1,4 +1,4 @@
-// netlify/functions/api.js - Production-ready API handler with Mock Mode
+// netlify/functions/api.js - Production-ready API handler
 
 const config = require("../../config/config");
 const logger = require("../../utils/logger");
@@ -8,21 +8,14 @@ const {
   ValidationError,
   AuthenticationError,
   validateRequired,
-  validatePhoneNumberOrThrow,
-  validatePINOrThrow,
+  validatePhoneNumberOrThrow, // ใช้ชื่อที่ถูกต้อง
+  validatePINOrThrow, // ใช้ชื่อที่ถูกต้อง
 } = require("../../utils/errors");
 
-// Check if we're in mock mode (no database available)
-const MOCK_MODE = !process.env.DATABASE_URL;
-
-// Services (only import if not in mock mode)
-let lineAuthService, prima789Service, databaseService;
-
-if (!MOCK_MODE) {
-  lineAuthService = require("../../services/lineAuthService");
-  prima789Service = require("../../services/prima789Service");
-  databaseService = require("../../services/databaseService");
-}
+// Services
+const lineAuthService = require("../../services/lineAuthService");
+const prima789Service = require("../../services/prima789Service");
+const databaseService = require("../../services/databaseService");
 
 /**
  * CORS headers for responses
@@ -57,50 +50,6 @@ function createResponse(data, statusCode = 200, extraHeaders = {}) {
 }
 
 /**
- * Mock Authentication (for demo purposes)
- */
-function mockAuthenticate(headers) {
-  const authHeader = headers.authorization || headers.Authorization;
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    throw new AuthenticationError("Missing or invalid authorization header");
-  }
-
-  // In mock mode, return a fake user ID
-  return "mock-line-user-" + Math.random().toString(36).substring(2, 8);
-}
-
-/**
- * Mock Member Data Generator
- */
-function generateMockMemberData(phoneNumber) {
-  const mockUsernames = [
-    "MEMBER001",
-    "PRIMA789VIP",
-    "GOLDMEMBER",
-    "SILVERMEMBER",
-  ];
-
-  const mockTiers = ["Bronze", "Silver", "Gold", "Platinum", "VIP"];
-  const mockBalances = ["฿1,250", "฿5,680", "฿12,450", "฿25,800", "฿50,000"];
-
-  // Generate consistent data based on phone number
-  const phoneHash = phoneNumber
-    .split("")
-    .reduce((a, b) => a + b.charCodeAt(0), 0);
-
-  return {
-    primaUsername: mockUsernames[phoneHash % mockUsernames.length],
-    memberTier: mockTiers[phoneHash % mockTiers.length],
-    creditBalance: mockBalances[phoneHash % mockBalances.length],
-    syncedAt: new Date().toISOString(),
-    lastLogin: new Date(Date.now() - Math.random() * 86400000).toISOString(),
-    totalGames: Math.floor(phoneHash % 1000) + 100,
-    winRate: (65 + (phoneHash % 30)).toFixed(1) + "%",
-  };
-}
-
-/**
  * Main API handler
  */
 const handler = asyncHandler(async (event, context) => {
@@ -112,28 +61,22 @@ const handler = asyncHandler(async (event, context) => {
       return handleOptions();
     }
 
-    // Apply rate limiting (skip in mock mode)
-    if (!MOCK_MODE) {
-      const rateLimitResult = rateLimiter.middleware()(event);
-      if (rateLimitResult) {
-        return rateLimitResult;
-      }
+    // Apply rate limiting
+    const rateLimitResult = rateLimiter.middleware()(event);
+    if (rateLimitResult) {
+      return rateLimitResult;
     }
 
     // Get the API path
     const path =
       event.path.replace(/(\.netlify\/functions\/api|\/api)/, "") || "/";
 
-    // Log request (simplified in mock mode)
-    const clientInfo = {
+    logger.info("API Request", {
       method: event.httpMethod,
       path,
       ip: event.headers["x-forwarded-for"] || "unknown",
       userAgent: event.headers["user-agent"] || "unknown",
-      mockMode: MOCK_MODE,
-    };
-
-    console.log("API Request:", JSON.stringify(clientInfo));
+    });
 
     // Route handling
     let response;
@@ -157,29 +100,26 @@ const handler = asyncHandler(async (event, context) => {
     }
 
     // Log response
-    const duration = Date.now() - startTime;
-    console.log("API Response:", {
-      statusCode: response.statusCode,
-      duration: `${duration}ms`,
-      mockMode: MOCK_MODE,
-    });
+    logger.logRequest(
+      { method: event.httpMethod, url: path },
+      { statusCode: response.statusCode },
+      startTime
+    );
 
     return response;
   } catch (error) {
-    console.error("Unhandled API error:", {
+    logger.error("Unhandled error in API handler", {
       error: error.message,
       stack: error.stack,
       path: event.path,
       method: event.httpMethod,
-      mockMode: MOCK_MODE,
     });
 
     return createResponse(
       {
         error: {
-          message: MOCK_MODE ? "Demo mode error" : "Internal server error",
+          message: "Internal server error",
           code: "INTERNAL_ERROR",
-          ...(MOCK_MODE && { note: "Running in demo mode without database" }),
         },
       },
       500
@@ -192,30 +132,12 @@ const handler = asyncHandler(async (event, context) => {
  * GET /api/status
  */
 async function handleStatusCheck(event) {
-  let lineUserId;
+  // Authenticate request
+  const lineUserId = await lineAuthService.authenticateRequest(event.headers);
 
-  // Authentication
-  if (MOCK_MODE) {
-    lineUserId = mockAuthenticate(event.headers);
-  } else {
-    lineUserId = await lineAuthService.authenticateRequest(event.headers);
-  }
-
-  console.log("Status check for user:", lineUserId.substring(0, 10) + "***");
-
-  if (MOCK_MODE) {
-    // Mock response - no user is synced initially
-    return createResponse({
-      synced: false,
-      mockMode: true,
-      note: "Demo mode - use any valid phone number and PIN to test",
-    });
-  }
-
-  // Real database logic (when not in mock mode)
+  // Log session activity
   const clientIP = event.headers["x-forwarded-for"] || "unknown";
   const userAgent = event.headers["user-agent"] || "unknown";
-
   await databaseService.logSession(
     lineUserId,
     "status_check",
@@ -223,21 +145,33 @@ async function handleStatusCheck(event) {
     userAgent
   );
 
+  // Check if user is synced
   const userMapping = await databaseService.findUserMapping(lineUserId);
 
   if (userMapping) {
+    // User is synced - return member data
     const memberData = {
       primaUsername: userMapping.prima_username,
-      memberTier: "Standard",
-      creditBalance: "N/A",
+      memberTier: "Standard", // Could be enhanced to fetch from Prima789
+      creditBalance: "N/A", // Could be enhanced to fetch real-time data
       syncedAt: userMapping.updated_at,
     };
+
+    logger.info("Status check - user synced", {
+      lineUserId: lineUserId.substring(0, 10) + "***",
+      primaUsername: userMapping.prima_username.replace(/./g, "*"),
+    });
 
     return createResponse({
       synced: true,
       memberData,
     });
   } else {
+    // User not synced
+    logger.info("Status check - user not synced", {
+      lineUserId: lineUserId.substring(0, 10) + "***",
+    });
+
     return createResponse({
       synced: false,
     });
@@ -249,14 +183,8 @@ async function handleStatusCheck(event) {
  * POST /api/sync
  */
 async function handleSync(event) {
-  let lineUserId;
-
-  // Authentication
-  if (MOCK_MODE) {
-    lineUserId = mockAuthenticate(event.headers);
-  } else {
-    lineUserId = await lineAuthService.authenticateRequest(event.headers);
-  }
+  // Authenticate request
+  const lineUserId = await lineAuthService.authenticateRequest(event.headers);
 
   // Parse and validate request body
   let requestData;
@@ -272,40 +200,13 @@ async function handleSync(event) {
   validateRequired(username, "username");
   validateRequired(password, "password");
 
-  // Validate field formats
+  // Validate field formats - ใช้ชื่อฟังก์ชันที่ถูกต้อง
   validatePhoneNumberOrThrow(username);
   validatePINOrThrow(password);
 
-  console.log("Sync attempt:", {
-    user: lineUserId.substring(0, 10) + "***",
-    phone: username.replace(/\d(?=\d{4})/g, "*"),
-    mockMode: MOCK_MODE,
-  });
-
-  if (MOCK_MODE) {
-    // Mock sync logic
-    await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate processing time
-
-    // Generate mock member data
-    const memberData = generateMockMemberData(username);
-
-    console.log("Mock sync successful:", {
-      user: lineUserId.substring(0, 10) + "***",
-      member: memberData.primaUsername,
-    });
-
-    return createResponse({
-      synced: true,
-      memberData,
-      mockMode: true,
-      note: "Demo mode - this is simulated data",
-    });
-  }
-
-  // Real sync logic (when not in mock mode)
+  // Log sync attempt
   const clientIP = event.headers["x-forwarded-for"] || "unknown";
   const userAgent = event.headers["user-agent"] || "unknown";
-
   await databaseService.logSession(
     lineUserId,
     "sync_attempt",
@@ -313,17 +214,25 @@ async function handleSync(event) {
     userAgent
   );
 
+  logger.info("Sync attempt started", {
+    lineUserId: lineUserId.substring(0, 10) + "***",
+    username: username.replace(/\d(?=\d{4})/g, "*"),
+  });
+
   try {
+    // Authenticate with Prima789
     const memberData = await prima789Service.authenticateUser(
       username,
       password
     );
 
+    // Save user mapping to database
     await databaseService.upsertUserMapping(
       lineUserId,
       memberData.primaUsername
     );
 
+    // Log successful sync
     await databaseService.logSession(
       lineUserId,
       "sync_success",
@@ -331,11 +240,17 @@ async function handleSync(event) {
       userAgent
     );
 
+    logger.info("Sync completed successfully", {
+      lineUserId: lineUserId.substring(0, 10) + "***",
+      primaUsername: memberData.primaUsername.replace(/./g, "*"),
+    });
+
     return createResponse({
       synced: true,
       memberData,
     });
   } catch (error) {
+    // Log failed sync
     await databaseService.logSession(
       lineUserId,
       "sync_failed",
@@ -343,6 +258,13 @@ async function handleSync(event) {
       userAgent
     );
 
+    logger.warn("Sync failed", {
+      lineUserId: lineUserId.substring(0, 10) + "***",
+      username: username.replace(/\d(?=\d{4})/g, "*"),
+      error: error.message,
+    });
+
+    // Re-throw to be handled by error middleware
     throw error;
   }
 }
@@ -353,50 +275,44 @@ async function handleSync(event) {
  */
 async function handleHealthCheck(event) {
   const healthChecks = {
-    api: true,
-    database: MOCK_MODE ? "mock" : false,
-    lineAPI: MOCK_MODE ? "mock" : false,
-    prima789: MOCK_MODE ? "mock" : false,
-    mockMode: MOCK_MODE,
-    overall: MOCK_MODE ? "demo" : false,
+    database: false,
+    lineAPI: false,
+    prima789: false,
+    overall: false,
   };
 
   try {
-    if (MOCK_MODE) {
-      // Mock health check
-      healthChecks.overall = "demo";
-    } else {
-      // Real health checks
-      healthChecks.database = await databaseService.healthCheck();
-      healthChecks.lineAPI = await lineAuthService.healthCheck();
-      healthChecks.prima789 = await prima789Service.healthCheck();
-      healthChecks.overall =
-        healthChecks.database && healthChecks.lineAPI && healthChecks.prima789;
-    }
+    // Check database health
+    healthChecks.database = await databaseService.healthCheck();
 
-    const statusCode =
-      healthChecks.overall === true || healthChecks.overall === "demo"
-        ? 200
-        : 503;
+    // Check LINE API health
+    healthChecks.lineAPI = await lineAuthService.healthCheck();
+
+    // Check Prima789 health
+    healthChecks.prima789 = await prima789Service.healthCheck();
+
+    // Overall health
+    healthChecks.overall =
+      healthChecks.database && healthChecks.lineAPI && healthChecks.prima789;
+
+    const statusCode = healthChecks.overall ? 200 : 503;
+
+    logger.info("Health check completed", {
+      ...healthChecks,
+      statusCode,
+    });
 
     return createResponse(
       {
-        status: MOCK_MODE
-          ? "demo"
-          : healthChecks.overall
-          ? "healthy"
-          : "degraded",
+        status: healthChecks.overall ? "healthy" : "degraded",
         checks: healthChecks,
         timestamp: new Date().toISOString(),
         version: "1.0.0",
-        note: MOCK_MODE
-          ? "Running in demo mode without external dependencies"
-          : undefined,
       },
       statusCode
     );
   } catch (error) {
-    console.error("Health check failed:", error.message);
+    logger.error("Health check failed", { error: error.message });
 
     return createResponse(
       {
@@ -405,7 +321,6 @@ async function handleHealthCheck(event) {
         error: error.message,
         timestamp: new Date().toISOString(),
         version: "1.0.0",
-        mockMode: MOCK_MODE,
       },
       503
     );
