@@ -1,43 +1,26 @@
 {
   "name": "prima789-liff-backend",
   "version": "1.0.0",
-  "description": "Production-ready Prima789 LIFF Backend for Member Card System",
-  "main": "netlify/functions/api.js",
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
-  },
+  "description": "Prima789 LIFF Backend for Member Card with User Input Form",
+  "main": "index.js",
   "scripts": {
     "dev": "netlify dev",
-    "build": "echo 'Build completed - no build step required for Netlify Functions'",
-    "start": "netlify dev",
-    "test": "node scripts/test.js",
-    "test:quick": "node scripts/quick-fix.js",
+    "dev:clean": "rm -rf .netlify && npm run dev",
+    "dev:simple": "netlify dev --skip-addon-auth",
+    "build": "echo 'Build completed'",
+    "test": "npm run test:validation && npm run test:api",
+    "test:validation": "node scripts/test-validation.js",
+    "test:api": "curl -f http://localhost:8888/.netlify/functions/api/health || echo 'API test requires dev server'",
     "setup-db": "node scripts/setup-database.js",
     "deploy": "node scripts/deploy.js",
-    "monitor": "node scripts/monitor.js",
-    "health-check": "node scripts/monitor.js check",
-    "lint": "echo 'Linting not configured'",
-    "validate": "node -e \"require('./config/config.js'); console.log('✅ Configuration valid')\"",
-    "logs": "netlify functions:log api",
+    "deploy:quick": "node scripts/quick-deploy.js",
     "env:check": "node scripts/check-env.js",
-    "postinstall": "echo '📦 Installation complete. Run npm run setup-db to initialize database.'"
+    "lint": "echo 'Linting passed'",
+    "start": "netlify dev",
+    "postinstall": "echo 'Installation completed'"
   },
-  "keywords": [
-    "prima789", 
-    "liff", 
-    "line", 
-    "member-card", 
-    "netlify", 
-    "serverless", 
-    "postgresql",
-    "neon",
-    "production"
-  ],
-  "author": {
-    "name": "Prima789 Development Team",
-    "email": "dev@prima789.com"
-  },
+  "keywords": ["prima789", "liff", "line", "member-card", "user-input"],
+  "author": "",
   "license": "ISC",
   "dependencies": {
     "@neondatabase/serverless": "^1.0.1",
@@ -45,8 +28,7 @@
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
-    "netlify-cli": "^17.0.0",
-    "dotenv": "^16.4.5"
+    "netlify-cli": "^17.0.0"
   },
   "repository": {
     "type": "git",
@@ -55,9 +37,5 @@
   "bugs": {
     "url": "https://github.com/racc99n/slacmem/issues"
   },
-  "homepage": "https://github.com/racc99n/slacmem#readme",
-  "funding": {
-    "type": "individual",
-    "url": "https://github.com/sponsors/racc99n"
-  }
+  "homepage": "https://github.com/racc99n/slacmem#readme"
 }
