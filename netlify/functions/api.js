@@ -1,17 +1,6 @@
-import apiRoutes from "../../src/routes.js";
 const { Pool } = require("pg");
 const { io } = require("socket.io-client");
-const app = express();
 
-// Middleware
-app.use(cors()); // อนุญาต Cross-Origin Requests
-app.use(express.json()); // สำหรับอ่าน JSON body
-
-// ใช้ routes ที่เราสร้างไว้
-app.use("/api", apiRoutes);
-
-// ส่งออก handler สำหรับ Netlify
-export const handler = serverless(app);
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
