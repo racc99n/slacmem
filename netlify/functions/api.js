@@ -1,5 +1,6 @@
 const { Pool } = require("@neondatabase/serverless");
 const { io } = require("socket.io-client");
+const axios = require("axios"); // เราจะใช้ axios ในการตรวจสอบ Token
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -8,33 +9,48 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 // =================================================================
 
 /**
- * TODO: Implement your real LINE Token validation logic here.
- * นี่คือ Middleware จำลองสำหรับตรวจสอบ LINE ID Token
+ * Middleware จริงสำหรับตรวจสอบ LINE ID Token
  * @param {object} headers - Headers จาก request ของ Netlify Function
  * @returns {Promise<string>} - คืนค่า lineUserId ถ้า Token ถูกต้อง
  * @throws {Error} - ถ้า Token ไม่ถูกต้องหรือไม่พบ
  */
 async function authMiddleware(headers) {
-  // ในสถานการณ์จริง คุณต้องดึง 'Authorization' header มา
-  // const token = headers.authorization?.split(' ')[1];
-  // if (!token) {
-  //     throw new Error('No authorization token provided');
-  // }
-  //
-  // ... ทำการ verify token กับ LINE ...
-  // const decoded = await verifyLineToken(token);
-  // return decoded.sub; // .sub คือ lineUserId
-
-  // ---- สำหรับการทดสอบตอนนี้, เราจะใช้ค่าจำลองไปก่อน ----
-  // ดึง lineUserId จาก header พิเศษที่เราจะส่งจาก Frontend
-  const mockLineUserId = headers["x-mock-line-user-id"];
-  if (!mockLineUserId) {
-    // ถ้าเป็นการเรียกจริงที่ไม่มี header นี้ ให้โยน error
-    // ในอนาคตเมื่อใช้ Token จริง ให้ลบส่วนนี้ออก
-    throw new Error("Authorization required");
+  const authHeader = headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    throw new Error("Authorization header is missing or invalid");
   }
-  console.log(`Authenticated mock user: ${mockLineUserId}`);
-  return mockLineUserId;
+
+  const idToken = authHeader.split(" ")[1];
+  const liffId = process.env.LIFF_ID; // ดึง LIFF ID จาก Environment Variables
+
+  if (!liffId) {
+    console.error("LIFF_ID environment variable is not set!");
+    throw new Error("Server configuration error");
+  }
+
+  try {
+    const response = await axios.post(
+      "https://api.line.me/oauth2/v2.1/verify",
+      new URLSearchParams({
+        id_token: idToken,
+        client_id: liffId,
+      }),
+      {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      }
+    );
+
+    // 'sub' คือ property ที่เก็บ Line User ID ใน token ที่ verified แล้ว
+    const lineUserId = response.data.sub;
+    console.log(`Successfully verified token for user: ${lineUserId}`);
+    return lineUserId;
+  } catch (error) {
+    console.error(
+      "LINE token verification failed:",
+      error.response ? error.response.data : error.message
+    );
+    throw new Error("Invalid or expired token");
+  }
 }
 
 function authenticateAndGetData(phone, pin) {
@@ -117,8 +133,7 @@ function authenticateAndGetData(phone, pin) {
 exports.handler = async (event, context) => {
   const headers = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers":
-      "Content-Type, Authorization, x-mock-line-user-id",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Content-Type": "application/json",
   };
@@ -128,14 +143,9 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    // --- เรียกใช้ Middleware ของเราก่อน ---
-    // เราจะส่ง lineUserId ผ่าน header ชื่อ 'x-mock-line-user-id' จาก Frontend เพื่อทดสอบ
     const lineUserId = await authMiddleware(event.headers);
+    const path = event.path.replace(/(\.netlify\/functions\/api|\/api)/, "");
 
-    // --- เริ่มการ Routing แบบ Manual ---
-    const path = event.path.replace(/\.netlify\/functions\/[^/]+/, "");
-
-    // GET /api/status (เปลี่ยนจาก user-status)
     if (event.httpMethod === "GET" && path.startsWith("/status")) {
       const { rows } = await pool.query(
         "SELECT prima_username FROM user_mappings WHERE line_user_id = $1",
@@ -143,14 +153,15 @@ exports.handler = async (event, context) => {
       );
 
       if (rows.length > 0) {
-        // **สำคัญ:** ในอนาคตคุณสามารถเพิ่มการดึงข้อมูลล่าสุดจาก prima789 ที่นี่ได้
+        const memberData = {
+          primaUsername: rows[0].prima_username,
+          memberTier: "Standard", // ข้อมูลจำลอง
+          creditBalance: "N/A", // ดึงข้อมูลล่าสุดเมื่อจำเป็น
+        };
         return {
           statusCode: 200,
           headers,
-          body: JSON.stringify({
-            synced: true,
-            primaUsername: rows[0].prima_username,
-          }),
+          body: JSON.stringify({ synced: true, memberData: memberData }),
         };
       } else {
         return {
@@ -161,14 +172,13 @@ exports.handler = async (event, context) => {
       }
     }
 
-    // POST /api/sync (เปลี่ยนจาก sync-account)
     if (event.httpMethod === "POST" && path.startsWith("/sync")) {
       const { username, password } = JSON.parse(event.body);
       if (!username || !password) {
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ message: "Missing required fields" }),
+          body: JSON.stringify({ error: "Missing required fields" }),
         };
       }
 
@@ -177,53 +187,51 @@ exports.handler = async (event, context) => {
         return {
           statusCode: 401,
           headers,
-          body: JSON.stringify({ message: result.message }),
+          body: JSON.stringify({ error: result.message }),
         };
       }
-      const memberData = result.data;
 
+      const memberData = result.data;
       await pool.query(
         `INSERT INTO user_mappings (line_user_id, prima_username) VALUES ($1, $2)
                  ON CONFLICT (line_user_id) DO UPDATE SET prima_username = EXCLUDED.prima_username;`,
         [lineUserId, memberData.primaUsername]
       );
 
+      const finalData = {
+        primaUsername: memberData.primaUsername,
+        memberTier: "Standard",
+        creditBalance: memberData.creditBalance,
+        firstName: memberData.firstName,
+        lastName: memberData.lastName,
+      };
+
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify({
-          synced: true,
-          memberData: {
-            primaUsername: memberData.primaUsername,
-            creditBalance: memberData.creditBalance,
-            firstName: memberData.firstName,
-            lastName: memberData.lastName,
-          },
-        }),
+        body: JSON.stringify({ synced: true, memberData: finalData }),
       };
     }
 
-    // ถ้าไม่มี Route ไหนตรงเลย
     return {
       statusCode: 404,
       headers,
-      body: JSON.stringify({ message: "Route not found" }),
+      body: JSON.stringify({ error: "Route not found" }),
     };
   } catch (error) {
     console.error("API Handler Error:", error);
     const errorMessage = error.message || "Internal Server Error";
-    // ถ้าเป็น Error จาก Middleware
-    if (error.message === "Authorization required") {
+    if (error.message.includes("token")) {
       return {
         statusCode: 401,
         headers,
-        body: JSON.stringify({ message: errorMessage }),
+        body: JSON.stringify({ error: errorMessage }),
       };
     }
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ message: errorMessage }),
+      body: JSON.stringify({ error: errorMessage }),
     };
   }
 };

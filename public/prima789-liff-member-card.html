@@ -7,38 +7,15 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <!-- Chosen Palette: Midnight Gold -->
-    <!-- Application Structure Plan: ผมได้ออกแบบแอปพลิเคชันเป็น Single-Page Application (SPA) ที่จัดการมุมมอง (View) ต่างๆ ผ่าน JavaScript แทนการโหลดหน้าใหม่ทั้งหมด โครงสร้างนี้ประกอบด้วย 4 สถานะหลัก: 1. **Loading View:** แสดงผลขณะกำลังเริ่มต้น LIFF และตรวจสอบสถานะการเชื่อมต่อบัญชี 2. **Login View:** แสดงผลเมื่อผู้ใช้ยังไม่ได้เชื่อมต่อบัญชี LINE กับ Prima789 3. **Card View:** แสดงบัตรสมาชิกเมื่อผู้ใช้เชื่อมต่อบัญชีเรียบร้อยแล้ว 4. **Error View:** แสดงผลเมื่อเกิดข้อผิดพลาด เหตุผลที่เลือกโครงสร้างนี้เพราะมอบประสบการณ์ผู้ใช้ที่ราบรื่น (Seamless UX) โดยไม่ต้องออกจาก LIFF App ไปยังเบราว์เซอร์ภายนอก ทำให้กระบวนการทั้งหมดเสร็จสิ้นในที่เดียว และง่ายต่อการจัดการสถานะของแอปพลิเคชัน -->
-    <!-- Visualization & Content Choices: Goal: แสดงข้อมูลสมาชิกและอำนวยความสะดวกในการเชื่อมบัญชี -> Viz/Presentation Method: ใช้การ์ดดีไซน์ที่สวยงามสำหรับข้อมูลสมาชิก (Card View) และฟอร์มล็อกอินที่เรียบง่าย (Login View) -> Interaction: ผู้ใช้กรอกข้อมูลในฟอร์มเพื่อส่งคำขอเชื่อมบัญชี ข้อมูลบนบัตรสมาชิกจะถูกดึงมาแสดงผลอัตโนมัติ -> Justification: การ์ดเป็นรูปแบบที่คนคุ้นเคยสำหรับบัตรสมาชิก และฟอร์มเป็นมาตรฐานสำหรับการยืนยันตัวตน วิธีนี้ตรงไปตรงมาและเข้าใจง่ายที่สุดสำหรับผู้ใช้ -> Library/Method: ใช้ Tailwind CSS สำหรับการออกแบบ UI ทั้งหมด และใช้ Vanilla JavaScript ในการจัดการสถานะและข้อมูล ไม่มีการใช้กราฟิกซับซ้อน -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
-        body {
-            font-family: 'Kanit', sans-serif;
-        }
-        .bg-gradient-dark {
-            background-image: linear-gradient(to top right, #1a202c, #2d3748);
-        }
-        .card-gradient {
-            background-image: linear-gradient(145deg, #2d3748, #4a5568);
-        }
-        .btn-primary {
-            background-color: #f59e0b;
-            transition: background-color 0.3s ease;
-        }
-        .btn-primary:hover {
-            background-color: #d97706;
-        }
-        .form-input {
-            background-color: #2d3748;
-            border-color: #4a5568;
-        }
-        .form-input:focus {
-            --tw-ring-color: #f59e0b;
-            border-color: #f59e0b;
-        }
-        .hidden {
-            display: none;
-        }
+        body { font-family: 'Kanit', sans-serif; }
+        .bg-gradient-dark { background-image: linear-gradient(to top right, #1a202c, #2d3748); }
+        .card-gradient { background-image: linear-gradient(145deg, #2d3748, #4a5568); }
+        .btn-primary { background-color: #f59e0b; transition: background-color 0.3s ease; }
+        .btn-primary:hover { background-color: #d97706; }
+        .form-input { background-color: #2d3748; border-color: #4a5568; }
+        .form-input:focus { --tw-ring-color: #f59e0b; border-color: #f59e0b; }
+        .hidden { display: none; }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -47,7 +24,6 @@
 <body class="bg-gradient-dark text-white min-h-screen flex items-center justify-center p-4">
 
     <div id="app-container" class="w-full max-w-md mx-auto">
-
         <!-- Loading View -->
         <div id="loading-view" class="text-center">
             <i class="fas fa-spinner fa-spin text-4xl text-amber-400"></i>
@@ -56,7 +32,7 @@
 
         <!-- Login View -->
         <div id="login-view" class="hidden">
-            <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl">
+             <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl">
                 <div class="text-center mb-6">
                     <img src="https://placehold.co/100x100/f59e0b/1a202c?text=P789" alt="Prima789 Logo" class="mx-auto rounded-full mb-4 w-24 h-24 border-4 border-amber-400">
                     <h1 class="text-3xl font-bold text-amber-400">เชื่อมต่อบัญชี</h1>
@@ -64,12 +40,12 @@
                 </div>
                 <form id="login-form">
                     <div class="mb-4">
-                        <label for="username" class="block mb-2 text-sm font-medium text-gray-300">ชื่อผู้ใช้</label>
-                        <input type="text" id="username" name="username" class="form-input w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2" required>
+                        <label for="username" class="block mb-2 text-sm font-medium text-gray-300">เบอร์โทรศัพท์</label>
+                        <input type="tel" id="username" name="username" class="form-input w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2" required>
                     </div>
                     <div class="mb-6">
-                        <label for="password" class="block mb-2 text-sm font-medium text-gray-300">รหัสผ่าน</label>
-                        <input type="password" id="password" name="password" class="form-input w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2" required>
+                        <label for="password" class="block mb-2 text-sm font-medium text-gray-300">PIN</label>
+                        <input type="password" id="password" name="password" inputmode="numeric" maxlength="4" class="form-input w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2" required>
                     </div>
                     <button type="submit" id="login-button" class="btn-primary w-full text-gray-900 font-bold py-3 px-4 rounded-lg shadow-lg">
                         <span id="login-button-text">เชื่อมต่อบัญชี</span>
@@ -128,7 +104,6 @@
             <h2 class="text-2xl font-bold mt-4">เกิดข้อผิดพลาด</h2>
             <p id="error-message" class="text-red-300 mt-2">ไม่สามารถเริ่มต้น LIFF ได้</p>
         </div>
-
     </div>
 
     <script>
@@ -136,6 +111,7 @@
         const API_BASE_URL = 'https://slaczcardmem.netlify.app/api';
 
         const views = ['loading-view', 'login-view', 'card-view', 'error-view'];
+        let currentLineUserId = null; // สร้างตัวแปร Global เพื่อเก็บ userId
 
         function showView(viewId) {
             views.forEach(id => {
@@ -149,6 +125,7 @@
         }
 
         async function main() {
+            showView('loading-view');
             try {
                 await liff.init({ liffId: LIFF_ID });
                 if (!liff.isLoggedIn()) {
@@ -156,7 +133,8 @@
                     return;
                 }
                 const profile = await liff.getProfile();
-                checkSyncStatus(profile);
+                currentLineUserId = profile.userId; // เก็บ userId ไว้ในตัวแปร
+                await checkSyncStatus(profile);
             } catch (error) {
                 console.error('LIFF Initialization failed', error);
                 document.getElementById('error-message').textContent = 'ไม่สามารถเริ่มต้น LIFF ได้ กรุณาลองใหม่อีกครั้ง';
@@ -165,11 +143,11 @@
         }
 
         async function checkSyncStatus(lineProfile) {
-            const { userId, displayName, pictureUrl } = lineProfile;
+            const { displayName, pictureUrl } = lineProfile;
 
             document.getElementById('line-display-name').textContent = displayName;
-            document.getElementById('line-user-id').textContent = userId;
-            if(pictureUrl) {
+            document.getElementById('line-user-id').textContent = currentLineUserId;
+            if (pictureUrl) {
                 document.getElementById('line-picture').src = pictureUrl;
             }
 
@@ -179,7 +157,8 @@
                     throw new Error('Could not get ID Token.');
                 }
 
-                const response = await fetch(`${API_BASE_URL}/api/status`, {
+                // **FIX 1: แก้ไข URL ให้ถูกต้อง**
+                const response = await fetch(`${API_BASE_URL}/status`, {
                     headers: {
                         'Authorization': `Bearer ${idToken}`
                     }
@@ -193,6 +172,8 @@
                         displayLoginView();
                     }
                 } else {
+                    const errorText = await response.text();
+                    console.error('Server response error text:', errorText);
                     throw new Error('Server error while checking status');
                 }
                 
@@ -209,10 +190,10 @@
             
             const handleSubmit = async (event) => {
                 event.preventDefault();
-                handleLogin();
+                // **FIX 2: ส่ง currentLineUserId ไปให้ handleLogin**
+                handleLogin(currentLineUserId); 
             };
 
-            // ป้องกันการ add event listener ซ้ำซ้อน
             if (loginForm.lastSubmitHandler) {
                 loginForm.removeEventListener('submit', loginForm.lastSubmitHandler);
             }
@@ -220,7 +201,7 @@
             loginForm.lastSubmitHandler = handleSubmit;
         }
 
-        async function handleLogin(lineUserId) {
+        async function handleLogin(userId) { // ฟังก์ชันรับ userId แล้ว
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             const errorElement = document.getElementById('login-error');
@@ -238,7 +219,7 @@
                 if (!idToken) {
                     throw new Error('Could not get ID Token for login.');
                 }
-
+                
                 const response = await fetch(`${API_BASE_URL}/sync`, {
                     method: 'POST',
                     headers: {
@@ -276,3 +257,4 @@
     </script>
 </body>
 </html>
+
