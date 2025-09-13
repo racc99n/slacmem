@@ -1,23 +1,51 @@
 {
   "name": "prima789-liff-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "description": "Production-ready Prima789 LIFF Backend for Member Card System",
+  "main": "netlify/functions/api.js",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   },
-  "keywords": [],
-  "author": "",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'Build completed - no build step required for Netlify Functions'",
+    "start": "netlify dev",
+    "test": "node scripts/test.js",
+    "setup-db": "node scripts/setup-database.js",
+    "deploy": "node scripts/deploy.js",
+    "monitor": "node scripts/monitor.js",
+    "health-check": "node scripts/monitor.js check",
+    "lint": "echo 'Linting not configured'",
+    "validate": "node -e \"require('./config/config.js'); console.log('✅ Configuration valid')\"",
+    "logs": "netlify functions:log api",
+    "env:check": "node -e \"require('./scripts/check-env.js')\"",
+    "postinstall": "echo '📦 Installation complete. Run npm run setup-db to initialize database.'"
+  },
+  "keywords": [
+    "prima789", 
+    "liff", 
+    "line", 
+    "member-card", 
+    "netlify", 
+    "serverless", 
+    "postgresql",
+    "neon",
+    "production"
+  ],
+  "author": {
+    "name": "Prima789 Development Team",
+    "email": "dev@prima789.com"
+  },
   "license": "ISC",
   "dependencies": {
-    "@line/liff": "^2.27.2",
     "@neondatabase/serverless": "^1.0.1",
-    "@sparticuz/chromium": "^138.0.2",
-    "express": "^5.1.0",
-    "pg": "^8.16.3",
-    "puppeteer-core": "^24.20.0",
-    "serverless-http": "^4.0.0",
+    "axios": "^1.7.7",
     "socket.io-client": "^4.8.1"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.0.0",
+    "dotenv": "^16.4.5"
   },
   "repository": {
     "type": "git",
@@ -26,5 +54,9 @@
   "bugs": {
     "url": "https://github.com/racc99n/slacmem/issues"
   },
-  "homepage": "https://github.com/racc99n/slacmem#readme"
+  "homepage": "https://github.com/racc99n/slacmem#readme",
+  "funding": {
+    "type": "individual",
+    "url": "https://github.com/sponsors/racc99n"
+  }
 }

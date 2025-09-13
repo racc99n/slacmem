@@ -4,60 +4,210 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prima789 Member Card</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://static.line-scdn.net/liff/edge/versions/2.27.2/sdk.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <style>
-        body { font-family: 'Kanit', sans-serif; }
-        .bg-gradient-dark { background-image: linear-gradient(to top right, #1a202c, #2d3748); }
-        .card-gradient { background-image: linear-gradient(145deg, #2d3748, #4a5568); }
-        .btn-primary { background-color: #f59e0b; transition: background-color 0.3s ease; }
-        .btn-primary:hover { background-color: #d97706; }
-        .form-input { background-color: #2d3748; border-color: #4a5568; }
-        .form-input:focus { --tw-ring-color: #f59e0b; border-color: #f59e0b; }
-        .hidden { display: none; }
-    </style>
+    
+    <!-- Preload critical resources -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://static.line-scdn.net">
+    
+    <!-- Stylesheets -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- LIFF SDK -->
+    <script src="https://static.line-scdn.net/liff/edge/versions/2.27.2/sdk.js"></script>
+    
+    <style>
+        body { 
+            font-family: 'Kanit', sans-serif; 
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        .bg-gradient-dark { 
+            background-image: linear-gradient(135deg, #1a202c 0%, #2d3748 100%); 
+        }
+        
+        .card-gradient { 
+            background: linear-gradient(145deg, #2d3748, #4a5568);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .btn-primary { 
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.25);
+        }
+        
+        .btn-primary:hover { 
+            background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 8px 12px -2px rgba(245, 158, 11, 0.35);
+        }
+        
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+        
+        .form-input { 
+            background-color: #2d3748; 
+            border-color: #4a5568; 
+            transition: all 0.3s ease;
+        }
+        
+        .form-input:focus { 
+            --tw-ring-color: #f59e0b; 
+            border-color: #f59e0b; 
+            background-color: #374151;
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .shake {
+            animation: shake 0.5s ease-in-out;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        
+        .hidden { display: none !important; }
+        
+        /* Loading spinner */
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #374151;
+            border-top: 4px solid #f59e0b;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Connection status indicator */
+        .connection-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .connection-indicator.online {
+            background-color: #065f46;
+            color: #d1fae5;
+        }
+        
+        .connection-indicator.offline {
+            background-color: #7f1d1d;
+            color: #fecaca;
+        }
+    </style>
 </head>
 <body class="bg-gradient-dark text-white min-h-screen flex items-center justify-center p-4">
 
+    <!-- Connection Status Indicator -->
+    <div id="connection-indicator" class="connection-indicator hidden">
+        <i class="fas fa-wifi mr-1"></i>
+        <span id="connection-status">กำลังตรวจสอบ...</span>
+    </div>
+
     <div id="app-container" class="w-full max-w-md mx-auto">
+        
         <!-- Loading View -->
-        <div id="loading-view" class="text-center">
-            <i class="fas fa-spinner fa-spin text-4xl text-amber-400"></i>
-            <p class="mt-4 text-lg">กำลังเตรียมข้อมูล...</p>
+        <div id="loading-view" class="text-center fade-in">
+            <div class="spinner mx-auto mb-4"></div>
+            <p class="text-lg mb-2">กำลังเตรียมข้อมูล...</p>
+            <p class="text-sm text-gray-400">โปรดรอสักครู่</p>
         </div>
 
         <!-- Login View -->
-        <div id="login-view" class="hidden">
-             <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl">
+        <div id="login-view" class="hidden fade-in">
+            <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl">
                 <div class="text-center mb-6">
-                    <img src="https://placehold.co/100x100/f59e0b/1a202c?text=P789" alt="Prima789 Logo" class="mx-auto rounded-full mb-4 w-24 h-24 border-4 border-amber-400">
+                    <img src="https://placehold.co/100x100/f59e0b/1a202c?text=P789" 
+                         alt="Prima789 Logo" 
+                         class="mx-auto rounded-full mb-4 w-24 h-24 border-4 border-amber-400"
+                         loading="lazy">
                     <h1 class="text-3xl font-bold text-amber-400">เชื่อมต่อบัญชี</h1>
                     <p class="text-gray-400 mt-2">กรุณาเข้าสู่ระบบ Prima789 เพื่อใช้งานบัตรสมาชิก</p>
                 </div>
-                <form id="login-form">
+                
+                <form id="login-form" novalidate>
                     <div class="mb-4">
-                        <label for="username" class="block mb-2 text-sm font-medium text-gray-300">เบอร์โทรศัพท์</label>
-                        <input type="tel" id="username" name="username" class="form-input w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2" required>
+                        <label for="username" class="block mb-2 text-sm font-medium text-gray-300">
+                            เบอร์โทรศัพท์ <span class="text-red-400">*</span>
+                        </label>
+                        <input type="tel" 
+                               id="username" 
+                               name="username" 
+                               class="form-input w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2" 
+                               placeholder="0812345678"
+                               maxlength="10"
+                               required
+                               autocomplete="tel">
+                        <div id="username-error" class="text-red-400 text-xs mt-1 hidden"></div>
                     </div>
+                    
                     <div class="mb-6">
-                        <label for="password" class="block mb-2 text-sm font-medium text-gray-300">PIN</label>
-                        <input type="password" id="password" name="password" inputmode="numeric" maxlength="4" class="form-input w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2" required>
+                        <label for="password" class="block mb-2 text-sm font-medium text-gray-300">
+                            PIN <span class="text-red-400">*</span>
+                        </label>
+                        <input type="password" 
+                               id="password" 
+                               name="password" 
+                               inputmode="numeric" 
+                               maxlength="4" 
+                               class="form-input w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 text-center tracking-widest text-lg" 
+                               placeholder="••••"
+                               required
+                               autocomplete="current-password">
+                        <div id="password-error" class="text-red-400 text-xs mt-1 hidden"></div>
                     </div>
-                    <button type="submit" id="login-button" class="btn-primary w-full text-gray-900 font-bold py-3 px-4 rounded-lg shadow-lg">
+                    
+                    <button type="submit" 
+                            id="login-button" 
+                            class="btn-primary w-full text-gray-900 font-bold py-3 px-4 rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
                         <span id="login-button-text">เชื่อมต่อบัญชี</span>
-                        <i id="login-button-spinner" class="fas fa-spinner fa-spin hidden"></i>
+                        <i id="login-button-spinner" class="fas fa-spinner fa-spin hidden ml-2"></i>
                     </button>
                 </form>
-                <p id="login-error" class="text-red-400 text-center mt-4 text-sm"></p>
+                
+                <div id="login-error" class="mt-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm hidden">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    <span id="login-error-message"></span>
+                </div>
+                
+                <div class="mt-6 text-center text-xs text-gray-500">
+                    <p>ข้อมูลของคุณจะถูกเก็บอย่างปลอดภัย</p>
+                </div>
             </div>
         </div>
 
         <!-- Card View -->
-        <div id="card-view" class="hidden">
+        <div id="card-view" class="hidden fade-in">
             <div class="card-gradient w-full mx-auto rounded-2xl shadow-2xl p-6 relative overflow-hidden">
                 <div class="absolute -top-10 -right-10 w-40 h-40 bg-amber-500/20 rounded-full filter blur-xl"></div>
                 <div class="relative z-10">
@@ -66,11 +216,18 @@
                             <p class="text-xs text-amber-300 uppercase tracking-widest">Member Card</p>
                             <h2 class="text-2xl font-bold">PRIMA789</h2>
                         </div>
-                        <img id="line-picture" src="https://placehold.co/64x64/ffffff/1a202c?text=User" alt="LINE Profile" class="w-16 h-16 rounded-full border-2 border-amber-400">
+                        <div class="relative">
+                            <img id="line-picture" 
+                                 src="https://placehold.co/64x64/ffffff/1a202c?text=User" 
+                                 alt="LINE Profile" 
+                                 class="w-16 h-16 rounded-full border-2 border-amber-400"
+                                 loading="lazy"
+                                 onerror="this.src='https://placehold.co/64x64/ffffff/1a202c?text=User'">
+                        </div>
                     </div>
 
                     <div class="mb-6 text-center">
-                        <p class="text-lg text-gray-300">สวัสดีคุณ,</p>
+                        <p class="text-lg text-gray-300">สวัสดีคุณ</p>
                         <h3 id="line-display-name" class="text-3xl font-semibold text-amber-400 truncate">-</h3>
                     </div>
 
@@ -82,7 +239,7 @@
                             </div>
                             <div class="text-right">
                                 <p class="text-xs text-gray-400">ระดับสมาชิก</p>
-                                <p id="member-tier" class="font-medium text-lg">-</p>
+                                <span id="member-tier" class="font-medium text-lg inline-block px-2 py-1 rounded-full text-xs">-</span>
                             </div>
                             <div class="col-span-2">
                                 <p class="text-xs text-gray-400">ยอดเครดิตคงเหลือ</p>
@@ -90,155 +247,265 @@
                             </div>
                         </div>
                     </div>
-                    <div class="mt-6 text-center">
-                        <p class="text-xs text-gray-500">LINE User ID:</p>
+                    
+                    <div class="mt-4 text-center">
+                        <p class="text-xs text-gray-500">อัปเดตล่าสุด: <span id="last-updated">-</span></p>
+                        <p class="text-xs text-gray-500 mt-1">LINE User ID:</p>
                         <p id="line-user-id" class="text-xs text-gray-400 break-all">-</p>
+                    </div>
+                    
+                    <div class="mt-4 flex gap-2">
+                        <button id="refresh-button" 
+                                class="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg text-sm transition-colors">
+                            <i class="fas fa-sync-alt mr-2"></i>
+                            รีเฟรช
+                        </button>
+                        <button id="disconnect-button" 
+                                class="bg-red-700 hover:bg-red-600 text-white py-2 px-4 rounded-lg text-sm transition-colors">
+                            <i class="fas fa-unlink mr-2"></i>
+                            ยกเลิกการเชื่อมต่อ
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Error View -->
-        <div id="error-view" class="hidden text-center bg-red-900/50 p-6 rounded-lg">
-            <i class="fas fa-exclamation-circle text-4xl text-red-400"></i>
-            <h2 class="text-2xl font-bold mt-4">เกิดข้อผิดพลาด</h2>
-            <p id="error-message" class="text-red-300 mt-2">ไม่สามารถเริ่มต้น LIFF ได้</p>
+        <div id="error-view" class="hidden text-center bg-red-900/50 p-6 rounded-lg border border-red-700 fade-in">
+            <i class="fas fa-exclamation-circle text-4xl text-red-400 mb-4"></i>
+            <h2 class="text-2xl font-bold mb-2">เกิดข้อผิดพลาด</h2>
+            <p id="error-message" class="text-red-300 mb-4">ไม่สามารถเริ่มต้น LIFF ได้</p>
+            <button id="retry-button" class="btn-primary text-gray-900 font-medium py-2 px-4 rounded-lg">
+                <i class="fas fa-redo mr-2"></i>
+                ลองใหม่
+            </button>
         </div>
+        
     </div>
 
     <script>
-        const LIFF_ID = '2008101230-z37JaYn1';
-        const API_BASE_URL = 'https://slaczcardmem.netlify.app/api';
+        // Configuration
+        const CONFIG = {
+            LIFF_ID: '2008101230-z37JaYn1',
+            API_BASE_URL: 'https://slaczcardmem.netlify.app/api',
+            RETRY_ATTEMPTS: 3,
+            RETRY_DELAY: 1000,
+            CONNECTION_CHECK_INTERVAL: 30000
+        };
 
+        // Application state
+        const state = {
+            currentLineUserId: null,
+            isOnline: navigator.onLine,
+            retryCount: 0
+        };
+
+        // DOM elements
         const views = ['loading-view', 'login-view', 'card-view', 'error-view'];
-        let currentLineUserId = null; // สร้างตัวแปร Global เพื่อเก็บ userId
+        const elements = {};
 
+        // Utility functions
         function showView(viewId) {
             views.forEach(id => {
                 const element = document.getElementById(id);
-                if (id === viewId) {
-                    element.classList.remove('hidden');
-                } else {
-                    element.classList.add('hidden');
+                if (element) {
+                    if (id === viewId) {
+                        element.classList.remove('hidden');
+                        element.classList.add('fade-in');
+                    } else {
+                        element.classList.add('hidden');
+                        element.classList.remove('fade-in');
+                    }
                 }
             });
         }
 
-        async function main() {
-            showView('loading-view');
-            try {
-                await liff.init({ liffId: LIFF_ID });
-                if (!liff.isLoggedIn()) {
-                    liff.login();
-                    return;
+        function showError(message, isRetryable = true) {
+            document.getElementById('error-message').textContent = message;
+            const retryButton = document.getElementById('retry-button');
+            if (retryButton) {
+                retryButton.style.display = isRetryable ? 'inline-block' : 'none';
+            }
+            showView('error-view');
+        }
+
+        function updateConnectionStatus() {
+            const indicator = document.getElementById('connection-indicator');
+            const status = document.getElementById('connection-status');
+            
+            if (state.isOnline) {
+                indicator.className = 'connection-indicator online';
+                status.textContent = 'เชื่อมต่อแล้ว';
+            } else {
+                indicator.className = 'connection-indicator offline';
+                status.textContent = 'ไม่มีการเชื่อมต่อ';
+            }
+            
+            indicator.classList.remove('hidden');
+            setTimeout(() => {
+                if (state.isOnline) {
+                    indicator.classList.add('hidden');
                 }
-                const profile = await liff.getProfile();
-                currentLineUserId = profile.userId; // เก็บ userId ไว้ในตัวแปร
-                await checkSyncStatus(profile);
+            }, 3000);
+        }
+
+        function formatTierBadge(tier) {
+            const colors = {
+                'Platinum': 'bg-purple-600 text-white',
+                'Gold': 'bg-yellow-500 text-gray-900',
+                'Silver': 'bg-gray-400 text-gray-900',
+                'Standard': 'bg-blue-600 text-white'
+            };
+            
+            const element = document.getElementById('member-tier');
+            element.textContent = tier;
+            element.className = `font-medium text-lg inline-block px-2 py-1 rounded-full text-xs ${colors[tier] || colors['Standard']}`;
+        }
+
+        function formatDateTime(dateString) {
+            if (!dateString) return '-';
+            try {
+                return new Date(dateString).toLocaleString('th-TH');
             } catch (error) {
-                console.error('LIFF Initialization failed', error);
-                document.getElementById('error-message').textContent = 'ไม่สามารถเริ่มต้น LIFF ได้ กรุณาลองใหม่อีกครั้ง';
-                showView('error-view');
+                return '-';
+            }
+        }
+
+        // API functions
+        async function apiRequest(endpoint, options = {}) {
+            const url = `${CONFIG.API_BASE_URL}${endpoint}`;
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            };
+
+            try {
+                const response = await fetch(url, { ...defaultOptions, ...options });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                if (error.name === 'TypeError' && !navigator.onLine) {
+                    throw new Error('ไม่มีการเชื่อมต่ออินเทอร์เน็ต');
+                }
+                throw error;
             }
         }
 
         async function checkSyncStatus(lineProfile) {
             const { displayName, pictureUrl } = lineProfile;
 
+            // Update UI with LINE profile
             document.getElementById('line-display-name').textContent = displayName;
-            document.getElementById('line-user-id').textContent = currentLineUserId;
+            document.getElementById('line-user-id').textContent = state.currentLineUserId;
+            
             if (pictureUrl) {
-                document.getElementById('line-picture').src = pictureUrl;
+                const imgElement = document.getElementById('line-picture');
+                imgElement.onerror = () => {
+                    imgElement.src = 'https://placehold.co/64x64/ffffff/1a202c?text=User';
+                };
+                imgElement.src = pictureUrl;
             }
 
             try {
                 const idToken = liff.getIDToken();
                 if (!idToken) {
-                    throw new Error('Could not get ID Token.');
+                    throw new Error('Could not get ID Token');
                 }
 
-                // **FIX 1: แก้ไข URL ให้ถูกต้อง**
-                const response = await fetch(`${API_BASE_URL}/status`, {
+                const response = await apiRequest('/status', {
                     headers: {
                         'Authorization': `Bearer ${idToken}`
                     }
                 });
 
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.synced) {
-                        displayMemberCard(data.memberData);
-                    } else {
-                        displayLoginView();
-                    }
+                if (response.synced) {
+                    displayMemberCard(response.memberData);
                 } else {
-                    const errorText = await response.text();
-                    console.error('Server response error text:', errorText);
-                    throw new Error('Server error while checking status');
+                    displayLoginView();
                 }
-                
+
             } catch (error) {
-                console.error('Failed to check sync status', error);
-                document.getElementById('error-message').textContent = 'ไม่สามารถตรวจสอบสถานะบัญชีได้';
-                showView('error-view');
+                console.error('Failed to check sync status:', error);
+                
+                if (error.message.includes('token') || error.message.includes('401')) {
+                    showError('การยืนยันตัวตนล้มเหลว กรุณาเข้าสู่ระบบใหม่');
+                } else {
+                    showError(`ไม่สามารถตรวจสอบสถานะบัญชีได้: ${error.message}`);
+                }
             }
         }
 
         function displayLoginView() {
             showView('login-view');
-            const loginForm = document.getElementById('login-form');
             
-            const handleSubmit = async (event) => {
-                event.preventDefault();
-                // **FIX 2: ส่ง currentLineUserId ไปให้ handleLogin**
-                handleLogin(currentLineUserId); 
-            };
-
-            if (loginForm.lastSubmitHandler) {
-                loginForm.removeEventListener('submit', loginForm.lastSubmitHandler);
-            }
-            loginForm.addEventListener('submit', handleSubmit);
-            loginForm.lastSubmitHandler = handleSubmit;
+            // Focus on first input
+            setTimeout(() => {
+                document.getElementById('username')?.focus();
+            }, 100);
         }
 
-        async function handleLogin(userId) { // ฟังก์ชันรับ userId แล้ว
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            const errorElement = document.getElementById('login-error');
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            
+            // Client-side validation
+            const errors = validateLoginForm(username, password);
+            if (Object.keys(errors).length > 0) {
+                showValidationErrors(errors);
+                return;
+            }
+
+            // Clear previous errors
+            clearValidationErrors();
+            
+            // Update UI for loading state
             const loginButton = document.getElementById('login-button');
             const buttonText = document.getElementById('login-button-text');
             const buttonSpinner = document.getElementById('login-button-spinner');
+            const errorContainer = document.getElementById('login-error');
 
-            errorElement.textContent = '';
             buttonText.classList.add('hidden');
             buttonSpinner.classList.remove('hidden');
             loginButton.disabled = true;
+            errorContainer.classList.add('hidden');
 
             try {
                 const idToken = liff.getIDToken();
                 if (!idToken) {
-                    throw new Error('Could not get ID Token for login.');
+                    throw new Error('Could not get ID Token for login');
                 }
-                
-                const response = await fetch(`${API_BASE_URL}/sync`, {
+
+                const response = await apiRequest('/sync', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
                         'Authorization': `Bearer ${idToken}`
                     },
                     body: JSON.stringify({ username, password })
                 });
 
-                if (response.ok) {
-                    const data = await response.json();
-                    displayMemberCard(data.memberData);
+                if (response.synced) {
+                    displayMemberCard(response.memberData);
                 } else {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+                    throw new Error('การเชื่อมต่อล้มเหลว');
                 }
 
             } catch (error) {
-                errorElement.textContent = error.message;
+                console.error('Login failed:', error);
+                showLoginError(error.message);
+                
+                // Shake animation for error
+                const form = document.getElementById('login-form');
+                form.classList.add('shake');
+                setTimeout(() => form.classList.remove('shake'), 500);
+                
             } finally {
                 buttonText.classList.remove('hidden');
                 buttonSpinner.classList.add('hidden');
@@ -246,15 +513,173 @@
             }
         }
 
+        function validateLoginForm(username, password) {
+            const errors = {};
+
+            if (!username) {
+                errors.username = 'กรุณากรอกเบอร์โทรศัพท์';
+            } else if (!/^0[689]\d{8}$/.test(username.replace(/[-\s]/g, ''))) {
+                errors.username = 'รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง';
+            }
+
+            if (!password) {
+                errors.password = 'กรุณากรอก PIN';
+            } else if (!/^\d{4}$/.test(password)) {
+                errors.password = 'PIN ต้องเป็นตัวเลข 4 หลัก';
+            }
+
+            return errors;
+        }
+
+        function showValidationErrors(errors) {
+            Object.keys(errors).forEach(field => {
+                const errorElement = document.getElementById(`${field}-error`);
+                if (errorElement) {
+                    errorElement.textContent = errors[field];
+                    errorElement.classList.remove('hidden');
+                }
+            });
+        }
+
+        function clearValidationErrors() {
+            ['username-error', 'password-error'].forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.classList.add('hidden');
+                    element.textContent = '';
+                }
+            });
+        }
+
+        function showLoginError(message) {
+            const errorContainer = document.getElementById('login-error');
+            const errorMessage = document.getElementById('login-error-message');
+            
+            errorMessage.textContent = message;
+            errorContainer.classList.remove('hidden');
+        }
+
         function displayMemberCard(userData) {
-            document.getElementById('prima-username').textContent = userData.primaUsername;
-            document.getElementById('member-tier').textContent = userData.memberTier;
-            document.getElementById('credit-balance').textContent = `฿${userData.creditBalance}`;
+            // Update card with user data
+            document.getElementById('prima-username').textContent = userData.primaUsername || '-';
+            formatTierBadge(userData.memberTier || 'Standard');
+            
+            const creditBalance = userData.creditBalance && userData.creditBalance !== 'N/A' 
+                ? `฿${userData.creditBalance}` 
+                : 'ไม่พร้อมใช้งาน';
+            document.getElementById('credit-balance').textContent = creditBalance;
+            
+            document.getElementById('last-updated').textContent = formatDateTime(userData.lastUpdated || userData.syncedAt);
+
             showView('card-view');
         }
 
-        window.onload = main;
+        // Initialize LIFF and application
+        async function initializeApp() {
+            try {
+                state.retryCount = 0;
+                showView('loading-view');
+
+                await liff.init({ liffId: CONFIG.LIFF_ID });
+
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                    return;
+                }
+
+                const profile = await liff.getProfile();
+                state.currentLineUserId = profile.userId;
+                
+                await checkSyncStatus(profile);
+
+            } catch (error) {
+                console.error('LIFF initialization failed:', error);
+                
+                let errorMessage = 'ไม่สามารถเริ่มต้น LIFF ได้';
+                
+                if (error.code === 'INIT_FAILED') {
+                    errorMessage = 'ไม่สามารถเชื่อมต่อกับ LINE ได้';
+                } else if (error.code === 'FORBIDDEN') {
+                    errorMessage = 'ไม่อนุญาตให้เข้าใช้งาน';
+                }
+                
+                showError(errorMessage);
+            }
+        }
+
+        // Event listeners
+        function setupEventListeners() {
+            // Login form
+            const loginForm = document.getElementById('login-form');
+            if (loginForm) {
+                loginForm.addEventListener('submit', handleLogin);
+            }
+
+            // Refresh button
+            const refreshButton = document.getElementById('refresh-button');
+            if (refreshButton) {
+                refreshButton.addEventListener('click', async () => {
+                    if (state.currentLineUserId) {
+                        const profile = await liff.getProfile();
+                        await checkSyncStatus(profile);
+                    }
+                });
+            }
+
+            // Disconnect button
+            const disconnectButton = document.getElementById('disconnect-button');
+            if (disconnectButton) {
+                disconnectButton.addEventListener('click', () => {
+                    if (confirm('คุณต้องการยกเลิกการเชื่อมต่อบัญชีใช่หรือไม่?')) {
+                        // For now, just redirect to login
+                        displayLoginView();
+                    }
+                });
+            }
+
+            // Retry button
+            const retryButton = document.getElementById('retry-button');
+            if (retryButton) {
+                retryButton.addEventListener('click', initializeApp);
+            }
+
+            // Network status
+            window.addEventListener('online', () => {
+                state.isOnline = true;
+                updateConnectionStatus();
+            });
+
+            window.addEventListener('offline', () => {
+                state.isOnline = false;
+                updateConnectionStatus();
+            });
+
+            // Input formatting
+            const usernameInput = document.getElementById('username');
+            if (usernameInput) {
+                usernameInput.addEventListener('input', (e) => {
+                    // Remove non-digits and limit length
+                    e.target.value = e.target.value.replace(/\D/g, '').substring(0, 10);
+                });
+            }
+
+            const passwordInput = document.getElementById('password');
+            if (passwordInput) {
+                passwordInput.addEventListener('input', (e) => {
+                    // Remove non-digits and limit length
+                    e.target.value = e.target.value.replace(/\D/g, '').substring(0, 4);
+                });
+            }
+        }
+
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            setupEventListeners();
+            updateConnectionStatus();
+        });
+
+        // Initialize when window loads
+        window.addEventListener('load', initializeApp);
     </script>
 </body>
 </html>
-

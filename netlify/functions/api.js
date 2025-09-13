@@ -1,237 +1,330 @@
-const { Pool } = require("@neondatabase/serverless");
-const { io } = require("socket.io-client");
-const axios = require("axios"); // เราจะใช้ axios ในการตรวจสอบ Token
+// netlify/functions/api.js - Production-ready API handler
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const config = require("../../config/config");
+const logger = require("../../utils/logger");
+const rateLimiter = require("../../utils/rateLimiter");
+const {
+  asyncHandler,
+  ValidationError,
+  AuthenticationError,
+  validateRequired,
+  validatePhoneNumber,
+  validatePIN,
+} = require("../../utils/errors");
 
-// =================================================================
-//                 ส่วนของ Middleware และ API Logic
-// =================================================================
+// Services
+const lineAuthService = require("../../services/lineAuthService");
+const prima789Service = require("../../services/prima789Service");
+const databaseService = require("../../services/databaseService");
 
 /**
- * Middleware จริงสำหรับตรวจสอบ LINE ID Token
- * @param {object} headers - Headers จาก request ของ Netlify Function
- * @returns {Promise<string>} - คืนค่า lineUserId ถ้า Token ถูกต้อง
- * @throws {Error} - ถ้า Token ไม่ถูกต้องหรือไม่พบ
+ * CORS headers for responses
  */
-async function authMiddleware(headers) {
-  const authHeader = headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    throw new Error("Authorization header is missing or invalid");
-  }
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Content-Type": "application/json",
+};
 
-  const idToken = authHeader.split(" ")[1];
-  const liffId = process.env.LIFF_ID; // ดึง LIFF ID จาก Environment Variables
-
-  if (!liffId) {
-    console.error("LIFF_ID environment variable is not set!");
-    throw new Error("Server configuration error");
-  }
-
-  try {
-    const response = await axios.post(
-      "https://api.line.me/oauth2/v2.1/verify",
-      new URLSearchParams({
-        id_token: idToken,
-        client_id: liffId,
-      }),
-      {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      }
-    );
-
-    // 'sub' คือ property ที่เก็บ Line User ID ใน token ที่ verified แล้ว
-    const lineUserId = response.data.sub;
-    console.log(`Successfully verified token for user: ${lineUserId}`);
-    return lineUserId;
-  } catch (error) {
-    console.error(
-      "LINE token verification failed:",
-      error.response ? error.response.data : error.message
-    );
-    throw new Error("Invalid or expired token");
-  }
-}
-
-function authenticateAndGetData(phone, pin) {
-  return new Promise((resolve, reject) => {
-    console.log(`Attempting to login via Socket.IO for phone: ${phone}`);
-    const socket = io("https://prima789.net", {
-      transports: ["polling"],
-    });
-
-    let fullMemberData = {};
-    let resolved = false;
-    const timeout = setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        socket.disconnect();
-        reject({ success: false, message: "การเชื่อมต่อล้มเหลว (หมดเวลา)" });
-      }
-    }, 20000);
-
-    socket.on("connect", () => {
-      console.log("Socket.IO connected. Emitting login event.");
-      socket.emit("login", { tel: phone, pin: pin });
-    });
-
-    socket.on("cus return", (response) => {
-      if (response.success) {
-        const data = response.data;
-        fullMemberData.primaUsername = data.mm_user;
-        fullMemberData.firstName = data.first_name;
-        fullMemberData.lastName = data.last_name;
-      } else {
-        if (!resolved) {
-          resolved = true;
-          clearTimeout(timeout);
-          socket.disconnect();
-          reject({
-            success: false,
-            message:
-              response.data.message || "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",
-          });
-        }
-      }
-      if (fullMemberData.creditBalance !== undefined && !resolved) {
-        resolved = true;
-        clearTimeout(timeout);
-        socket.disconnect();
-        resolve({ success: true, data: fullMemberData });
-      }
-    });
-
-    socket.on("credit_push", (response) => {
-      if (response.success) {
-        fullMemberData.creditBalance = response.data.total_credit;
-      }
-      if (fullMemberData.primaUsername && !resolved) {
-        resolved = true;
-        clearTimeout(timeout);
-        socket.disconnect();
-        resolve({ success: true, data: fullMemberData });
-      }
-    });
-
-    socket.on("disconnect", () => console.log("Socket.IO disconnected."));
-    socket.on("connect_error", (err) => {
-      if (!resolved) {
-        resolved = true;
-        clearTimeout(timeout);
-        reject({
-          success: false,
-          message: "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้",
-        });
-      }
-    });
-  });
-}
-
-// =================================================================
-//                 MAIN HANDLER (ส่วนนี้ไม่ต้องแก้)
-// =================================================================
-exports.handler = async (event, context) => {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Content-Type": "application/json",
+/**
+ * Handle preflight requests
+ */
+function handleOptions() {
+  return {
+    statusCode: 204,
+    headers: corsHeaders,
+    body: "",
   };
+}
 
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 204, headers };
-  }
+/**
+ * Create success response
+ */
+function createResponse(data, statusCode = 200, extraHeaders = {}) {
+  return {
+    statusCode,
+    headers: { ...corsHeaders, ...extraHeaders },
+    body: JSON.stringify(data),
+  };
+}
+
+/**
+ * Main API handler
+ */
+const handler = asyncHandler(async (event, context) => {
+  const startTime = Date.now();
 
   try {
-    const lineUserId = await authMiddleware(event.headers);
-    const path = event.path.replace(/(\.netlify\/functions\/api|\/api)/, "");
+    // Handle preflight requests
+    if (event.httpMethod === "OPTIONS") {
+      return handleOptions();
+    }
+
+    // Apply rate limiting
+    const rateLimitResult = rateLimiter.middleware()(event);
+    if (rateLimitResult) {
+      return rateLimitResult;
+    }
+
+    // Get the API path
+    const path =
+      event.path.replace(/(\.netlify\/functions\/api|\/api)/, "") || "/";
+
+    logger.info("API Request", {
+      method: event.httpMethod,
+      path,
+      ip: event.headers["x-forwarded-for"] || "unknown",
+      userAgent: event.headers["user-agent"] || "unknown",
+    });
+
+    // Route handling
+    let response;
 
     if (event.httpMethod === "GET" && path.startsWith("/status")) {
-      const { rows } = await pool.query(
-        "SELECT prima_username FROM user_mappings WHERE line_user_id = $1",
-        [lineUserId]
+      response = await handleStatusCheck(event);
+    } else if (event.httpMethod === "POST" && path.startsWith("/sync")) {
+      response = await handleSync(event);
+    } else if (event.httpMethod === "GET" && path.startsWith("/health")) {
+      response = await handleHealthCheck(event);
+    } else {
+      response = createResponse(
+        {
+          error: {
+            message: "Route not found",
+            code: "NOT_FOUND",
+          },
+        },
+        404
       );
-
-      if (rows.length > 0) {
-        const memberData = {
-          primaUsername: rows[0].prima_username,
-          memberTier: "Standard", // ข้อมูลจำลอง
-          creditBalance: "N/A", // ดึงข้อมูลล่าสุดเมื่อจำเป็น
-        };
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({ synced: true, memberData: memberData }),
-        };
-      } else {
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({ synced: false }),
-        };
-      }
     }
 
-    if (event.httpMethod === "POST" && path.startsWith("/sync")) {
-      const { username, password } = JSON.parse(event.body);
-      if (!username || !password) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ error: "Missing required fields" }),
-        };
-      }
+    // Log response
+    logger.logRequest(
+      { method: event.httpMethod, url: path },
+      { statusCode: response.statusCode },
+      startTime
+    );
 
-      const result = await authenticateAndGetData(username, password);
-      if (!result.success) {
-        return {
-          statusCode: 401,
-          headers,
-          body: JSON.stringify({ error: result.message }),
-        };
-      }
-
-      const memberData = result.data;
-      await pool.query(
-        `INSERT INTO user_mappings (line_user_id, prima_username) VALUES ($1, $2)
-                 ON CONFLICT (line_user_id) DO UPDATE SET prima_username = EXCLUDED.prima_username;`,
-        [lineUserId, memberData.primaUsername]
-      );
-
-      const finalData = {
-        primaUsername: memberData.primaUsername,
-        memberTier: "Standard",
-        creditBalance: memberData.creditBalance,
-        firstName: memberData.firstName,
-        lastName: memberData.lastName,
-      };
-
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ synced: true, memberData: finalData }),
-      };
-    }
-
-    return {
-      statusCode: 404,
-      headers,
-      body: JSON.stringify({ error: "Route not found" }),
-    };
+    return response;
   } catch (error) {
-    console.error("API Handler Error:", error);
-    const errorMessage = error.message || "Internal Server Error";
-    if (error.message.includes("token")) {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ error: errorMessage }),
-      };
-    }
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: errorMessage }),
-    };
+    logger.error("Unhandled error in API handler", {
+      error: error.message,
+      stack: error.stack,
+      path: event.path,
+      method: event.httpMethod,
+    });
+
+    return createResponse(
+      {
+        error: {
+          message: "Internal server error",
+          code: "INTERNAL_ERROR",
+        },
+      },
+      500
+    );
   }
-};
+});
+
+/**
+ * Handle status check endpoint
+ * GET /api/status
+ */
+async function handleStatusCheck(event) {
+  // Authenticate request
+  const lineUserId = await lineAuthService.authenticateRequest(event.headers);
+
+  // Log session activity
+  const clientIP = event.headers["x-forwarded-for"] || "unknown";
+  const userAgent = event.headers["user-agent"] || "unknown";
+  await databaseService.logSession(
+    lineUserId,
+    "status_check",
+    clientIP,
+    userAgent
+  );
+
+  // Check if user is synced
+  const userMapping = await databaseService.findUserMapping(lineUserId);
+
+  if (userMapping) {
+    // User is synced - return member data
+    const memberData = {
+      primaUsername: userMapping.prima_username,
+      memberTier: "Standard", // Could be enhanced to fetch from Prima789
+      creditBalance: "N/A", // Could be enhanced to fetch real-time data
+      syncedAt: userMapping.updated_at,
+    };
+
+    logger.info("Status check - user synced", {
+      lineUserId: lineUserId.substring(0, 10) + "***",
+      primaUsername: userMapping.prima_username.replace(/./g, "*"),
+    });
+
+    return createResponse({
+      synced: true,
+      memberData,
+    });
+  } else {
+    // User not synced
+    logger.info("Status check - user not synced", {
+      lineUserId: lineUserId.substring(0, 10) + "***",
+    });
+
+    return createResponse({
+      synced: false,
+    });
+  }
+}
+
+/**
+ * Handle sync endpoint
+ * POST /api/sync
+ */
+async function handleSync(event) {
+  // Authenticate request
+  const lineUserId = await lineAuthService.authenticateRequest(event.headers);
+
+  // Parse and validate request body
+  let requestData;
+  try {
+    requestData = JSON.parse(event.body || "{}");
+  } catch (error) {
+    throw new ValidationError("Invalid JSON in request body");
+  }
+
+  const { username, password } = requestData;
+
+  // Validate required fields
+  validateRequired(username, "username");
+  validateRequired(password, "password");
+
+  // Validate field formats
+  validatePhoneNumber(username);
+  validatePIN(password);
+
+  // Log sync attempt
+  const clientIP = event.headers["x-forwarded-for"] || "unknown";
+  const userAgent = event.headers["user-agent"] || "unknown";
+  await databaseService.logSession(
+    lineUserId,
+    "sync_attempt",
+    clientIP,
+    userAgent
+  );
+
+  logger.info("Sync attempt started", {
+    lineUserId: lineUserId.substring(0, 10) + "***",
+    username: username.replace(/\d(?=\d{4})/g, "*"),
+  });
+
+  try {
+    // Authenticate with Prima789
+    const memberData = await prima789Service.authenticateUser(
+      username,
+      password
+    );
+
+    // Save user mapping to database
+    await databaseService.upsertUserMapping(
+      lineUserId,
+      memberData.primaUsername
+    );
+
+    // Log successful sync
+    await databaseService.logSession(
+      lineUserId,
+      "sync_success",
+      clientIP,
+      userAgent
+    );
+
+    logger.info("Sync completed successfully", {
+      lineUserId: lineUserId.substring(0, 10) + "***",
+      primaUsername: memberData.primaUsername.replace(/./g, "*"),
+    });
+
+    return createResponse({
+      synced: true,
+      memberData,
+    });
+  } catch (error) {
+    // Log failed sync
+    await databaseService.logSession(
+      lineUserId,
+      "sync_failed",
+      clientIP,
+      userAgent
+    );
+
+    logger.warn("Sync failed", {
+      lineUserId: lineUserId.substring(0, 10) + "***",
+      username: username.replace(/\d(?=\d{4})/g, "*"),
+      error: error.message,
+    });
+
+    // Re-throw to be handled by error middleware
+    throw error;
+  }
+}
+
+/**
+ * Handle health check endpoint
+ * GET /api/health
+ */
+async function handleHealthCheck(event) {
+  const healthChecks = {
+    database: false,
+    lineAPI: false,
+    prima789: false,
+    overall: false,
+  };
+
+  try {
+    // Check database health
+    healthChecks.database = await databaseService.healthCheck();
+
+    // Check LINE API health
+    healthChecks.lineAPI = await lineAuthService.healthCheck();
+
+    // Check Prima789 health
+    healthChecks.prima789 = await prima789Service.healthCheck();
+
+    // Overall health
+    healthChecks.overall =
+      healthChecks.database && healthChecks.lineAPI && healthChecks.prima789;
+
+    const statusCode = healthChecks.overall ? 200 : 503;
+
+    logger.info("Health check completed", {
+      ...healthChecks,
+      statusCode,
+    });
+
+    return createResponse(
+      {
+        status: healthChecks.overall ? "healthy" : "degraded",
+        checks: healthChecks,
+        timestamp: new Date().toISOString(),
+        version: "1.0.0",
+      },
+      statusCode
+    );
+  } catch (error) {
+    logger.error("Health check failed", { error: error.message });
+
+    return createResponse(
+      {
+        status: "unhealthy",
+        checks: healthChecks,
+        error: error.message,
+        timestamp: new Date().toISOString(),
+        version: "1.0.0",
+      },
+      503
+    );
+  }
+}
+
+module.exports = { handler };

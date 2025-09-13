@@ -1,8 +1,117 @@
+# netlify.toml - Production-ready Netlify configuration
+
 [build]
   functions = "netlify/functions"
   publish = "public"
+  command = "npm run build"
 
+[build.environment]
+  NODE_VERSION = "18"
+  NPM_VERSION = "9"
+
+# API redirects
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"
   status = 200
+
+# SPA redirect for client-side routing
+[[redirects]]
+  from = "/*"
+  to = "/prima789-liff-member-card.html"
+  status = 200
+  conditions = {Role = ["admin", "user"]}
+
+# Security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Basic security headers
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    
+    # Content Security Policy
+    Content-Security-Policy = '''
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' 
+        https://cdn.tailwindcss.com 
+        https://static.line-scdn.net 
+        https://cdnjs.cloudflare.com;
+      style-src 'self' 'unsafe-inline' 
+        https://cdn.tailwindcss.com 
+        https://cdnjs.cloudflare.com 
+        https://fonts.googleapis.com;
+      font-src 'self' 
+        https://fonts.gstatic.com 
+        https://cdnjs.cloudflare.com;
+      img-src 'self' data: https: blob:;
+      connect-src 'self' 
+        https://api.line.me 
+        https://prima789.net 
+        https://*.netlify.app;
+      frame-ancestors 'none';
+      base-uri 'self';
+    '''
+    
+    # Performance headers
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# API-specific headers
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    # CORS headers
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+    Access-Control-Max-Age = "86400"
+    
+    # API-specific security
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Pragma = "no-cache"
+    Expires = "0"
+
+# Static assets caching
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# HTML files
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+# Environment-specific settings
+[context.production.environment]
+  NODE_ENV = "production"
+  LOG_LEVEL = "info"
+
+[context.deploy-preview.environment]
+  NODE_ENV = "staging"
+  LOG_LEVEL = "debug"
+
+[context.branch-deploy.environment]
+  NODE_ENV = "development"
+  LOG_LEVEL = "debug"
+
+# Function settings
+[functions]
+  directory = "netlify/functions"
+  
+[functions."api"]
+  timeout = 30
+
+# Error pages
+[[redirects]]
+  from = "/404"
+  to = "/prima789-liff-member-card.html"
+  status = 404
+
+# Edge functions (if needed in the future)
+# [[edge_functions]]
+#   function = "auth"
+#   path = "/api/*"
