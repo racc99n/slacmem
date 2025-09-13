@@ -174,36 +174,27 @@
             }
 
             try {
-                // MOCK API CALL: ในสถานการณ์จริง ส่วนนี้จะเรียก API ของคุณ
-                // const response = await fetch(`${API_BASE_URL}/user-status/${userId}`);
-                // if (response.ok) {
-                //     const userData = await response.json();
-                //     displayMemberCard(userData);
-                // } else if (response.status === 404) {
-                //     displayLoginView(userId);
-                // } else {
-                //     throw new Error('Server error');
-                // }
-
-                // --- START MOCK LOGIC ---
-                // จำลองการทำงานเพื่อการสาธิต (สุ่มว่าจะเจอ user หรือไม่)
-                console.log("Mocking API call to check sync status for:", userId);
-                await new Promise(resolve => setTimeout(resolve, 1500)); 
-                
-                if (Math.random() > 0.5) { // 50% chance user is synced
-                    console.log("Mock response: User is synced.");
-                    const mockUserData = {
-                        primaUsername: "player007",
-                        memberTier: "Gold",
-                        creditBalance: "5,432.10",
-                    };
-                    displayMemberCard(mockUserData);
-                } else {
-                    console.log("Mock response: User not found. Displaying login.");
-                    displayLoginView(userId);
+                const idToken = liff.getIDToken();
+                if (!idToken) {
+                    throw new Error('Could not get ID Token.');
                 }
-                // --- END MOCK LOGIC ---
 
+                const response = await fetch(`${API_BASE_URL}/status`, {
+                    headers: {
+                        'Authorization': `Bearer ${idToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.synced) {
+                        displayMemberCard(data.memberData);
+                    } else {
+                        displayLoginView();
+                    }
+                } else {
+                    throw new Error('Server error while checking status');
+                }
             } catch (error) {
                 console.error('Failed to check sync status', error);
                 document.getElementById('error-message').textContent = 'ไม่สามารถตรวจสอบสถานะบัญชีได้';
@@ -211,16 +202,19 @@
             }
         }
 
-        function displayLoginView(lineUserId) {
+        function displayLoginView() {
             showView('login-view');
             const loginForm = document.getElementById('login-form');
             
             const handleSubmit = async (event) => {
                 event.preventDefault();
-                handleLogin(lineUserId);
+                handleLogin();
             };
 
-            loginForm.removeEventListener('submit', loginForm.lastSubmitHandler);
+            // ป้องกันการ add event listener ซ้ำซ้อน
+            if (loginForm.lastSubmitHandler) {
+                loginForm.removeEventListener('submit', loginForm.lastSubmitHandler);
+            }
             loginForm.addEventListener('submit', handleSubmit);
             loginForm.lastSubmitHandler = handleSubmit;
         }
@@ -239,38 +233,28 @@
             loginButton.disabled = true;
 
             try {
-                // MOCK API CALL: ในสถานการณ์จริง ส่วนนี้จะเรียก API เพื่อเชื่อมบัญชี
-                // const response = await fetch(`${API_BASE_URL}/sync-account`, {
-                //     method: 'POST',
-                //     headers: { 'Content-Type': 'application/json' },
-                //     body: JSON.stringify({ lineUserId, username, password })
-                // });
-                // if (response.ok) {
-                //     const userData = await response.json();
-                //     displayMemberCard(userData);
-                // } else {
-                //     const errorData = await response.json();
-                //     throw new Error(errorData.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
-                // }
-                
-                // --- START MOCK LOGIC ---
-                console.log("Mocking API call to sync account:", { lineUserId, username });
-                await new Promise(resolve => setTimeout(resolve, 2000));
-
-                if (username === "player007" && password === "1234") {
-                     console.log("Mock response: Sync successful.");
-                    const mockUserData = {
-                        primaUsername: "player007",
-                        memberTier: "Gold",
-                        creditBalance: "5,432.10",
-                    };
-                    displayMemberCard(mockUserData);
-                } else {
-                    console.log("Mock response: Sync failed (invalid credentials).");
-                    throw new Error("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
+                const idToken = liff.getIDToken();
+                if (!idToken) {
+                    throw new Error('Could not get ID Token for login.');
                 }
-                // --- END MOCK LOGIC ---
 
+                const response = await fetch(`${API_BASE_URL}/sync`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    displayMemberCard(data.memberData);
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+                }
+                
             } catch (error) {
                 errorElement.textContent = error.message;
             } finally {
