@@ -4,7 +4,7 @@ import { LiffProvider } from "react-liff";
 import App from "./App";
 
 // LIFF ID ควรเก็บไว้ใน Environment Variable
-const liffId = process.env.REACT_APP_LIFF_ID;
+const liffId = process.env.LIFF_ID;
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
