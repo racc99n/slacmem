@@ -26,7 +26,7 @@ const config = {
 
   // Prima789 Integration
   prima789: {
-    apiUrl: process.env.PRIMA789_API_URL || "https://prima789.net/login",
+    apiUrl: process.env.PRIMA789_API_URL || "https://prima789.net",
     timeout: parseInt(process.env.PRIMA789_TIMEOUT) || 20000,
     retryAttempts: parseInt(process.env.PRIMA789_RETRY_ATTEMPTS) || 3,
     retryDelay: parseInt(process.env.PRIMA789_RETRY_DELAY) || 1000,
@@ -59,7 +59,11 @@ function validateConfig() {
     throw new Error("Invalid LIFF_ID format");
   }
 
-  if (!config.database.url.startsWith("postgresql://")) {
+  if (
+    !config.database.url.startsWith(
+      "postgresql://neondb_owner:npg_vnxlqOo5h6Ek@ep-green-union-a1wh8z25-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+    )
+  ) {
     throw new Error(
       "DATABASE_URL must be a valid PostgreSQL connection string"
     );
