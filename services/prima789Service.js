@@ -102,19 +102,15 @@ class Prima789Service {
       throw new ValidationError("PIN is required", "password");
     }
 
-    // Clean phone number (remove spaces, dashes, etc.)
-    const cleanPhone = phone.replace(/[-\s\(\)]/g, "");
-
-    // Validate phone number format (Thai mobile numbers)
-    if (!/^(0[689]\d{8}|[689]\d{8})$/.test(cleanPhone)) {
+    // Use the boolean validation functions
+    if (!validatePhoneNumber(phone)) {
       throw new ValidationError(
         "Invalid phone number format (must be Thai mobile number)",
         "username"
       );
     }
 
-    // Validate PIN format
-    if (!/^\d{4}$/.test(pin)) {
+    if (!validatePIN(pin)) {
       throw new ValidationError("PIN must be exactly 4 digits", "password");
     }
   }

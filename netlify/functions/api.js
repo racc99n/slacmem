@@ -201,8 +201,8 @@ async function handleSync(event) {
   validateRequired(password, "password");
 
   // Validate field formats
-  validatePhoneNumber(username);
-  validatePIN(password);
+  validatePhoneNumberOrThrow(username);
+  validatePINOrThrow(password);
 
   // Log sync attempt
   const clientIP = event.headers["x-forwarded-for"] || "unknown";

@@ -87,20 +87,59 @@ class TestRunner {
     await this.test(
       "Service Imports",
       async () => {
+        // Test LINE Auth Service
         const lineAuth = require("../services/lineAuthService");
-        const prima789 = require("../services/prima789Service");
-        const database = require("../services/databaseService");
-
         if (typeof lineAuth.verifyIdToken !== "function") {
-          throw new Error("LINE auth service not properly exported");
+          throw new Error(
+            "LINE auth service verifyIdToken not properly exported"
+          );
+        }
+        if (typeof lineAuth.authenticateRequest !== "function") {
+          throw new Error(
+            "LINE auth service authenticateRequest not properly exported"
+          );
         }
 
+        // Test Prima789 Service
+        const prima789 = require("../services/prima789Service");
         if (typeof prima789.authenticateUser !== "function") {
-          throw new Error("Prima789 service not properly exported");
+          throw new Error(
+            "Prima789 service authenticateUser not properly exported"
+          );
+        }
+        if (typeof prima789.validateCredentials !== "function") {
+          throw new Error(
+            "Prima789 service validateCredentials not properly exported"
+          );
         }
 
+        // Test Database Service
+        const database = require("../services/databaseService");
         if (typeof database.findUserMapping !== "function") {
-          throw new Error("Database service not properly exported");
+          throw new Error(
+            "Database service findUserMapping not properly exported"
+          );
+        }
+        if (typeof database.upsertUserMapping !== "function") {
+          throw new Error(
+            "Database service upsertUserMapping not properly exported"
+          );
+        }
+        if (typeof database.healthCheck !== "function") {
+          throw new Error("Database service healthCheck not properly exported");
+        }
+
+        // Test that Prima789 service can access validation functions
+        try {
+          // This should not throw an error for valid credentials
+          prima789.validateCredentials("0812345678", "1234");
+        } catch (error) {
+          // This is expected for this test, just checking if function exists and runs
+          if (error.message.includes("not defined")) {
+            throw new Error(
+              "Prima789 service cannot access validation functions"
+            );
+          }
         }
       },
       { critical: true }
@@ -207,16 +246,31 @@ class TestRunner {
 
   async testValidationFunctions() {
     await this.test("Validation Functions", async () => {
-      const { validatePhoneNumber, validatePIN } = require("../utils/errors");
+      const {
+        validatePhoneNumber,
+        validatePIN,
+        validatePhoneNumberOrThrow,
+        validatePINOrThrow,
+        ValidationError,
+      } = require("../utils/errors");
 
+      // Test boolean validation functions
       // Test valid phone numbers
       if (!validatePhoneNumber("0812345678")) {
         throw new Error("Valid phone number rejected");
       }
 
+      if (!validatePhoneNumber("0651234567")) {
+        throw new Error("Valid phone number (06x) rejected");
+      }
+
       // Test invalid phone numbers
       if (validatePhoneNumber("123")) {
         throw new Error("Invalid phone number accepted");
+      }
+
+      if (validatePhoneNumber("0512345678")) {
+        throw new Error("Invalid phone number (05x) accepted");
       }
 
       // Test valid PIN
@@ -227,6 +281,43 @@ class TestRunner {
       // Test invalid PIN
       if (validatePIN("abc")) {
         throw new Error("Invalid PIN accepted");
+      }
+
+      if (validatePIN("12345")) {
+        throw new Error("5-digit PIN accepted");
+      }
+
+      // Test throwing validation functions
+      try {
+        validatePhoneNumberOrThrow("0812345678");
+        // Should not throw for valid phone
+      } catch (error) {
+        throw new Error("Valid phone number caused exception");
+      }
+
+      try {
+        validatePhoneNumberOrThrow("invalid");
+        throw new Error("Invalid phone number should have thrown");
+      } catch (error) {
+        if (!(error instanceof ValidationError)) {
+          throw new Error("Wrong error type for invalid phone");
+        }
+      }
+
+      try {
+        validatePINOrThrow("1234");
+        // Should not throw for valid PIN
+      } catch (error) {
+        throw new Error("Valid PIN caused exception");
+      }
+
+      try {
+        validatePINOrThrow("abc");
+        throw new Error("Invalid PIN should have thrown");
+      } catch (error) {
+        if (!(error instanceof ValidationError)) {
+          throw new Error("Wrong error type for invalid PIN");
+        }
       }
     });
   }

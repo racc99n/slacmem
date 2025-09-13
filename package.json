@@ -12,6 +12,7 @@
     "build": "echo 'Build completed - no build step required for Netlify Functions'",
     "start": "netlify dev",
     "test": "node scripts/test.js",
+    "test:quick": "node scripts/quick-fix.js",
     "setup-db": "node scripts/setup-database.js",
     "deploy": "node scripts/deploy.js",
     "monitor": "node scripts/monitor.js",
@@ -19,16 +20,16 @@
     "lint": "echo 'Linting not configured'",
     "validate": "node -e \"require('./config/config.js'); console.log('✅ Configuration valid')\"",
     "logs": "netlify functions:log api",
-    "env:check": "node -e \"require('./scripts/check-env.js')\"",
+    "env:check": "node scripts/check-env.js",
     "postinstall": "echo '📦 Installation complete. Run npm run setup-db to initialize database.'"
   },
   "keywords": [
-    "prima789",
-    "liff",
-    "line",
-    "member-card",
-    "netlify",
-    "serverless",
+    "prima789", 
+    "liff", 
+    "line", 
+    "member-card", 
+    "netlify", 
+    "serverless", 
     "postgresql",
     "neon",
     "production"
@@ -40,13 +41,12 @@
   "license": "ISC",
   "dependencies": {
     "@neondatabase/serverless": "^1.0.1",
-    "@netlify/blobs": "^10.0.10",
     "axios": "^1.7.7",
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
-    "dotenv": "^16.6.1",
-    "netlify-cli": "^23.5.1"
+    "netlify-cli": "^17.0.0",
+    "dotenv": "^16.4.5"
   },
   "repository": {
     "type": "git",

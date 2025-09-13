@@ -1,6 +1,16 @@
 // scripts/check-env.js - Environment validation script
 
-require("dotenv").config();
+const path = require("path");
+
+// Load environment variables from .env file if it exists
+try {
+  require("dotenv").config({ path: path.join(__dirname, "../.env") });
+} catch (error) {
+  // dotenv not available, continue without it
+  console.log(
+    "ℹ️ dotenv not available, using system environment variables only"
+  );
+}
 
 class EnvironmentChecker {
   constructor() {

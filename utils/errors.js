@@ -139,4 +139,6 @@ module.exports = {
   validateRequired,
   validatePhoneNumber,
   validatePIN,
+  validatePhoneNumberOrThrow,
+  validatePINOrThrow,
 };
