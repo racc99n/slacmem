@@ -26,7 +26,7 @@ const config = {
 
   // Prima789 Integration
   prima789: {
-    apiUrl: process.env.PRIMA789_API_URL || "https://prima789.net",
+    apiUrl: process.env.PRIMA789_API_URL || "https://prima789.net/login",
     timeout: parseInt(process.env.PRIMA789_TIMEOUT) || 20000,
     retryAttempts: parseInt(process.env.PRIMA789_RETRY_ATTEMPTS) || 3,
     retryDelay: parseInt(process.env.PRIMA789_RETRY_DELAY) || 1000,

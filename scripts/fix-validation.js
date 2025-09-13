@@ -16,17 +16,17 @@ try {
   } = require("../utils/errors");
 
   // Test boolean functions
-  if (!validatePhoneNumber("0812345678")) {
+  if (!validatePhoneNumber("0969174691")) {
     throw new Error("validatePhoneNumber failed for valid number");
   }
-  if (!validatePIN("1234")) {
+  if (!validatePIN("9999")) {
     throw new Error("validatePIN failed for valid PIN");
   }
 
   // Test throwing functions
   try {
-    validatePhoneNumberOrThrow("0812345678");
-    validatePINOrThrow("1234");
+    validatePhoneNumberOrThrow("0969174691");
+    validatePINOrThrow("9999");
   } catch (error) {
     throw new Error("Throwing functions failed for valid inputs");
   }
@@ -51,7 +51,7 @@ try {
 
   // Test validateCredentials function
   try {
-    prima789Service.validateCredentials("0812345678", "1234");
+    prima789Service.validateCredentials("0969174691", "9999");
     console.log("   ✅ Validation passed for valid credentials");
   } catch (error) {
     if (error.message.includes("not defined")) {
