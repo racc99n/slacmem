@@ -2,7 +2,7 @@
   "name": "prima789-liff-backend",
   "version": "1.0.0",
   "description": "Prima789 LIFF Backend for Member Card with User Input Form",
-  "main": "index.js",
+  "main": "netlify/functions/api.js",
   "scripts": {
     "dev": "netlify dev",
     "dev:clean": "rm -rf .netlify && npm run dev",
