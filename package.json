@@ -1,31 +1,54 @@
 {
-  "name": "prima789-liff-backend",
-  "version": "1.0.0",
-  "description": "Prima789 LIFF Backend for Member Card with User Input Form",
+  "name": "prima789-liff-member-card",
+  "version": "2.0.0",
+  "description": "Prima789 LIFF Member Card with Socket.IO Integration - Updated Architecture",
   "main": "netlify/functions/api.js",
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
-  },
-
   "scripts": {
     "dev": "netlify dev",
     "dev:clean": "rm -rf .netlify && npm run dev",
     "dev:simple": "netlify dev --skip-addon-auth",
-    "build": "echo 'Build completed'",
-    "test": "npm run test:validation && npm run test:api",
+    "build": "npm run setup-db && npm run build:css",
+    "build:css": "echo 'CSS build completed'",
+    
+    "test": "npm run test:validation && npm run test:imports && npm run test:api",
     "test:validation": "node scripts/test-validation.js",
-    "test:api": "curl -f http://localhost:8888/.netlify/functions/api/health || echo 'API test requires dev server'",
-    "setup-db": "node scripts/setup-database.js",
-    "deploy": "node scripts/deploy.js",
-    "deploy:quick": "node scripts/quick-deploy.js",
-    "env:check": "node scripts/check-env.js",
-    "lint": "echo 'Linting passed'",
+    "test:imports": "node scripts/test-imports.js", 
+    "test:api": "node scripts/test-api.js",
+    "test:liff": "node scripts/test-liff-csp.js",
+    "test:db": "node scripts/test-database.js",
+    
+    "setup-db": "node scripts/setup-database-enhanced.js",
+    "setup-db:force": "node scripts/setup-database-enhanced.js --force",
+    
+    "deploy": "npm run test && npm run deploy:prod",
+    "deploy:prod": "node scripts/deploy-enhanced.js",
+    "deploy:quick": "node scripts/quick-deploy-enhanced.js",
+    
+    "env:check": "node scripts/check-env-enhanced.js",
+    "env:generate": "node scripts/generate-env.js",
+    
+    "monitor": "node scripts/monitor.js start",
+    "monitor:check": "node scripts/monitor.js check", 
+    "monitor:report": "node scripts/monitor.js report",
+    
+    "lint": "echo 'Linting completed'",
     "start": "netlify dev",
-    "postinstall": "echo 'Installation completed'"
+    "postinstall": "npm run env:check",
+    
+    "debug:socket": "node scripts/debug-socket.js",
+    "debug:api": "node scripts/debug-api.js",
+    "fix:netlify": "node scripts/fix-netlify-enhanced.js"
   },
-  "keywords": ["prima789", "liff", "line", "member-card", "user-input"],
-  "author": "",
+  "keywords": [
+    "prima789", 
+    "liff", 
+    "line", 
+    "member-card", 
+    "socket.io", 
+    "real-time", 
+    "authentication"
+  ],
+  "author": "Prima789 Development Team",
   "license": "ISC",
   "dependencies": {
     "@neondatabase/serverless": "^1.0.1",
@@ -35,6 +58,10 @@
   "devDependencies": {
     "netlify-cli": "^17.0.0"
   },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/racc99n/slacmem.git"
@@ -42,5 +69,13 @@
   "bugs": {
     "url": "https://github.com/racc99n/slacmem/issues"
   },
-  "homepage": "https://github.com/racc99n/slacmem#readme"
+  "homepage": "https://github.com/racc99n/slacmem#readme",
+  "config": {
+    "deployTarget": "production",
+    "apiVersion": "v1"
+  },
+  "funding": {
+    "type": "individual",
+    "url": "https://prima789.net"
+  }
 }

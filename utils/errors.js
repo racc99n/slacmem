@@ -1,56 +1,72 @@
-// utils/errors.js - Production-ready error handling
+// utils/errors.js - Production-ready error handling (FIXED)
 
 /**
- * Custom error classes for the application
+ * Base Application Error Class
  */
-class ValidationError extends Error {
-  constructor(message, field = null, code = "VALIDATION_ERROR") {
+class AppError extends Error {
+  constructor(message, statusCode = 500, code = "INTERNAL_ERROR") {
     super(message);
+    this.name = "AppError";
+    this.statusCode = statusCode;
+    this.code = code;
+    this.isOperational = true;
+    Error.captureStackTrace(this, this.constructor);
+  }
+}
+
+/**
+ * Validation Error Class
+ */
+class ValidationError extends AppError {
+  constructor(message, field = null, code = "VALIDATION_ERROR") {
+    super(message, 400, code);
     this.name = "ValidationError";
     this.field = field;
-    this.code = code;
-    this.status = 400;
   }
 }
 
-class AuthenticationError extends Error {
+/**
+ * Authentication Error Class
+ */
+class AuthenticationError extends AppError {
   constructor(message = "Authentication failed", code = "AUTH_ERROR") {
-    super(message);
+    super(message, 401, code);
     this.name = "AuthenticationError";
-    this.code = code;
-    this.status = 401;
   }
 }
 
-class AuthorizationError extends Error {
+/**
+ * Authorization Error Class
+ */
+class AuthorizationError extends AppError {
   constructor(message = "Access denied", code = "ACCESS_DENIED") {
-    super(message);
+    super(message, 403, code);
     this.name = "AuthorizationError";
-    this.code = code;
-    this.status = 403;
   }
 }
 
-class DatabaseError extends Error {
+/**
+ * Database Error Class
+ */
+class DatabaseError extends AppError {
   constructor(message = "Database operation failed", code = "DB_ERROR") {
-    super(message);
+    super(message, 500, code);
     this.name = "DatabaseError";
-    this.code = code;
-    this.status = 500;
   }
 }
 
-class ExternalServiceError extends Error {
+/**
+ * External API Error Class
+ */
+class ExternalAPIError extends AppError {
   constructor(
-    message = "External service error",
+    message = "External API error",
     service = "unknown",
-    code = "SERVICE_ERROR"
+    code = "API_ERROR"
   ) {
-    super(message);
-    this.name = "ExternalServiceError";
+    super(message, 503, code);
+    this.name = "ExternalAPIError";
     this.service = service;
-    this.code = code;
-    this.status = 503;
   }
 }
 
@@ -72,7 +88,7 @@ function asyncHandler(fn) {
       });
 
       // Return proper error response
-      const statusCode = error.status || 500;
+      const statusCode = error.statusCode || 500;
       const errorResponse = {
         error: {
           message: error.message,
@@ -121,8 +137,8 @@ function validatePhoneNumber(phone) {
   const cleanPhone = phone.replace(/[-\s\(\)]/g, "");
 
   // Validate Thai mobile number format
-  // Patterns: 08x, 09x, 06x (with or without leading 0)
-  const phonePattern = /^(0[689]\d{8}|[689]\d{8})$/;
+  // Patterns: 08x, 09x, 06x (10 digits total)
+  const phonePattern = /^0[689]\d{8}$/;
   return phonePattern.test(cleanPhone);
 }
 
@@ -147,10 +163,6 @@ function validatePIN(pin) {
  */
 function validatePhoneNumberOrThrow(phone) {
   if (!validatePhoneNumber(phone)) {
-    throw new ValidationError("Invalid phone number format", "username");
-  }
-
-  if (!validatePhoneNumber(phone)) {
     throw new ValidationError(
       "Invalid phone number format (must be Thai mobile number: 08x, 09x, or 06x)",
       "username"
@@ -164,10 +176,6 @@ function validatePhoneNumberOrThrow(phone) {
  * @throws {ValidationError} If PIN is invalid
  */
 function validatePINOrThrow(pin) {
-  if (!validatePIN(pin)) {
-    throw new ValidationError("PIN must be exactly 4 digits", "password");
-  }
-
   if (!validatePIN(pin)) {
     throw new ValidationError("PIN must be exactly 4 digits", "password");
   }
@@ -216,6 +224,7 @@ function sanitizeInput(input) {
     .trim()
     .replace(/[<>]/g, "") // Remove HTML tags
     .replace(/['"]/g, "") // Remove quotes
+    .replace(/[\\]/g, "") // Remove backslashes
     .substring(0, 1000); // Limit length
 }
 
@@ -226,7 +235,7 @@ function sanitizeInput(input) {
  * @returns {Object} Error response object
  */
 function createErrorResponse(error, defaultStatus = 500) {
-  const statusCode = error.status || defaultStatus;
+  const statusCode = error.statusCode || defaultStatus;
 
   return {
     statusCode,
@@ -247,28 +256,73 @@ function createErrorResponse(error, defaultStatus = 500) {
   };
 }
 
+/**
+ * Handle different types of errors and return appropriate response
+ * @param {Error} error - Error object
+ * @param {Object} event - Lambda event object (optional)
+ * @returns {Object} HTTP response object
+ */
+function handleError(error, event = {}) {
+  // Log error with context
+  console.error("Error handled:", {
+    name: error.name,
+    message: error.message,
+    code: error.code,
+    stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+    path: event.path,
+    method: event.httpMethod,
+    timestamp: new Date().toISOString(),
+  });
+
+  // Return appropriate response based on error type
+  if (error instanceof ValidationError) {
+    return createErrorResponse(error, 400);
+  } else if (error instanceof AuthenticationError) {
+    return createErrorResponse(error, 401);
+  } else if (error instanceof AuthorizationError) {
+    return createErrorResponse(error, 403);
+  } else if (error instanceof DatabaseError) {
+    return createErrorResponse(error, 500);
+  } else if (error instanceof ExternalAPIError) {
+    return createErrorResponse(error, 503);
+  } else {
+    // Unknown error - don't expose internal details
+    const safeError = new AppError(
+      process.env.NODE_ENV === "development"
+        ? error.message
+        : "An unexpected error occurred",
+      500,
+      "INTERNAL_ERROR"
+    );
+    return createErrorResponse(safeError, 500);
+  }
+}
+
+// Export all error classes and utility functions
 module.exports = {
   // Error classes
-  validatePhoneNumberOrThrow,
-  validatePINOrThrow,
+  AppError,
   ValidationError,
   AuthenticationError,
   AuthorizationError,
   DatabaseError,
-  ExternalServiceError,
+  ExternalAPIError,
 
   // Utility functions
   asyncHandler,
   createErrorResponse,
+  handleError,
 
-  // Validation functions
+  // Validation functions (boolean return)
   validateRequired,
   validatePhoneNumber,
   validatePIN,
-  validatePhoneNumberOrThrow, // ← เพิ่มฟังก์ชันที่หายไป
-  validatePINOrThrow, // ← เพิ่มฟังก์ชันที่หายไป
   validateEmail,
   validateLength,
+
+  // Validation functions (throw on error)
+  validatePhoneNumberOrThrow,
+  validatePINOrThrow,
 
   // Utility functions
   sanitizeInput,

@@ -1,4 +1,4 @@
-// services/databaseService.js - Production-ready database service
+// services/databaseService.js - Enhanced Production-ready database service
 
 const { Pool } = require("@neondatabase/serverless");
 const config = require("../config/config");
@@ -96,10 +96,14 @@ class DatabaseService {
       SELECT 
         id,
         line_user_id,
+        line_display_name,
         prima_username,
+        prima_phone,
+        member_tier,
+        credit_balance,
         created_at,
         updated_at
-      FROM user_mappings 
+      FROM user_accounts 
       WHERE line_user_id = $1
     `;
 
@@ -116,48 +120,95 @@ class DatabaseService {
   }
 
   /**
-   * Create or update user mapping
+   * Create or update user mapping (legacy method for compatibility)
    * @param {string} lineUserId - LINE User ID
    * @param {string} primaUsername - Prima789 username
    * @returns {Promise<Object>} Created/updated mapping
    */
   async upsertUserMapping(lineUserId, primaUsername) {
-    if (!lineUserId || typeof lineUserId !== "string") {
+    return this.upsertUserMappingWithData({
+      line_user_id: lineUserId,
+      prima_username: primaUsername,
+    });
+  }
+
+  /**
+   * Create or update user mapping with enhanced data
+   * @param {Object} mappingData - Complete mapping data
+   * @returns {Promise<Object>} Created/updated mapping
+   */
+  async upsertUserMappingWithData(mappingData) {
+    const {
+      line_user_id,
+      line_display_name,
+      prima_username,
+      prima_phone,
+      member_tier,
+      credit_balance,
+    } = mappingData;
+
+    if (!line_user_id || typeof line_user_id !== "string") {
       throw new ValidationError("LINE User ID is required");
     }
 
-    if (!primaUsername || typeof primaUsername !== "string") {
+    if (!prima_username || typeof prima_username !== "string") {
       throw new ValidationError("Prima username is required");
     }
 
     const query = `
-      INSERT INTO user_mappings (line_user_id, prima_username, updated_at)
-      VALUES ($1, $2, CURRENT_TIMESTAMP)
+      INSERT INTO user_accounts (
+        line_user_id, 
+        line_display_name, 
+        prima_username, 
+        prima_phone,
+        member_tier,
+        credit_balance,
+        last_sync,
+        updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       ON CONFLICT (line_user_id)
       DO UPDATE SET 
+        line_display_name = EXCLUDED.line_display_name,
         prima_username = EXCLUDED.prima_username,
+        prima_phone = EXCLUDED.prima_phone,
+        member_tier = EXCLUDED.member_tier,
+        credit_balance = EXCLUDED.credit_balance,
+        last_sync = CURRENT_TIMESTAMP,
         updated_at = CURRENT_TIMESTAMP
       RETURNING 
         id,
         line_user_id,
+        line_display_name,
         prima_username,
+        prima_phone,
+        member_tier,
+        credit_balance,
         created_at,
         updated_at
     `;
 
     try {
-      const result = await this.query(query, [lineUserId, primaUsername]);
+      const result = await this.query(query, [
+        line_user_id,
+        line_display_name || null,
+        prima_username,
+        prima_phone || null,
+        member_tier || "Standard",
+        credit_balance || "0.00",
+      ]);
 
       logger.info("User mapping upserted successfully", {
-        lineUserId: lineUserId.substring(0, 10) + "***",
-        primaUsername: primaUsername.replace(/./g, "*"),
+        lineUserId: line_user_id.substring(0, 10) + "***",
+        primaUsername: prima_username.replace(/./g, "*"),
+        memberTier: member_tier,
       });
 
       return result.rows[0];
     } catch (error) {
       logger.error("Failed to upsert user mapping", {
-        lineUserId: lineUserId.substring(0, 10) + "***",
-        primaUsername: primaUsername.replace(/./g, "*"),
+        lineUserId: line_user_id.substring(0, 10) + "***",
+        primaUsername: prima_username.replace(/./g, "*"),
         error: error.message,
       });
       throw error;
@@ -174,7 +225,7 @@ class DatabaseService {
       throw new ValidationError("LINE User ID is required");
     }
 
-    const query = "DELETE FROM user_mappings WHERE line_user_id = $1";
+    const query = "DELETE FROM user_accounts WHERE line_user_id = $1";
 
     try {
       const result = await this.query(query, [lineUserId]);
@@ -227,16 +278,22 @@ class DatabaseService {
    */
   async getStatistics() {
     const queries = {
-      totalUsers: "SELECT COUNT(*) as count FROM user_mappings",
+      totalUsers: "SELECT COUNT(*) as count FROM user_accounts",
       recentUsers: `
         SELECT COUNT(*) as count 
-        FROM user_mappings 
+        FROM user_accounts 
         WHERE created_at >= NOW() - INTERVAL '24 hours'
       `,
       recentSessions: `
         SELECT COUNT(*) as count 
         FROM session_logs 
         WHERE created_at >= NOW() - INTERVAL '24 hours'
+      `,
+      tierDistribution: `
+        SELECT member_tier, COUNT(*) as count 
+        FROM user_accounts 
+        WHERE member_tier IS NOT NULL 
+        GROUP BY member_tier
       `,
     };
 
@@ -245,13 +302,76 @@ class DatabaseService {
 
       for (const [key, query] of Object.entries(queries)) {
         const result = await this.query(query);
-        results[key] = parseInt(result.rows[0].count);
+
+        if (key === "tierDistribution") {
+          results[key] = result.rows.reduce((acc, row) => {
+            acc[row.member_tier] = parseInt(row.count);
+            return acc;
+          }, {});
+        } else {
+          results[key] = parseInt(result.rows[0].count);
+        }
       }
 
       logger.info("Database statistics retrieved", results);
       return results;
     } catch (error) {
       logger.error("Failed to get database statistics", {
+        error: error.message,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Setup database tables
+   * @returns {Promise<void>}
+   */
+  async setupTables() {
+    const userAccountsTable = `
+      CREATE TABLE IF NOT EXISTS user_accounts (
+        id SERIAL PRIMARY KEY,
+        line_user_id VARCHAR(255) UNIQUE NOT NULL,
+        line_display_name VARCHAR(255),
+        prima_username VARCHAR(255) NOT NULL,
+        prima_phone VARCHAR(20),
+        member_tier VARCHAR(50) DEFAULT 'Standard',
+        credit_balance DECIMAL(15,2) DEFAULT 0.00,
+        last_sync TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
+    const sessionLogsTable = `
+      CREATE TABLE IF NOT EXISTS session_logs (
+        id SERIAL PRIMARY KEY,
+        line_user_id VARCHAR(255) NOT NULL,
+        action VARCHAR(100) NOT NULL,
+        ip_address INET,
+        user_agent TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
+    const indexes = [
+      "CREATE INDEX IF NOT EXISTS idx_user_accounts_line_user_id ON user_accounts(line_user_id);",
+      "CREATE INDEX IF NOT EXISTS idx_user_accounts_prima_username ON user_accounts(prima_username);",
+      "CREATE INDEX IF NOT EXISTS idx_session_logs_line_user_id ON session_logs(line_user_id);",
+      "CREATE INDEX IF NOT EXISTS idx_session_logs_created_at ON session_logs(created_at);",
+    ];
+
+    try {
+      await this.query(userAccountsTable);
+      await this.query(sessionLogsTable);
+
+      for (const indexQuery of indexes) {
+        await this.query(indexQuery);
+      }
+
+      logger.info("Database tables setup completed successfully");
+    } catch (error) {
+      logger.error("Failed to setup database tables", {
         error: error.message,
       });
       throw error;

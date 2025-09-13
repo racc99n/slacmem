@@ -1,9 +1,14 @@
-// services/prima789Service.js - Production-ready Prima789 integration service
+// services/prima789Service.js - Fixed Production-ready Prima789 integration service
 
 const { io } = require("socket.io-client");
 const config = require("../config/config");
 const logger = require("../utils/logger");
-const { ExternalAPIError, ValidationError } = require("../utils/errors");
+const {
+  ExternalAPIError,
+  ValidationError,
+  validatePhoneNumber,
+  validatePIN,
+} = require("../utils/errors");
 
 class Prima789Service {
   constructor() {
@@ -102,7 +107,7 @@ class Prima789Service {
       throw new ValidationError("PIN is required", "password");
     }
 
-    // Use the boolean validation functions
+    // Use the imported validation functions
     if (!validatePhoneNumber(phone)) {
       throw new ValidationError(
         "Invalid phone number format (must be Thai mobile number)",
@@ -168,6 +173,7 @@ class Prima789Service {
           fullMemberData.primaUsername = data.mm_user;
           fullMemberData.firstName = data.first_name;
           fullMemberData.lastName = data.last_name;
+          fullMemberData.phone = phone;
 
           // Check if we have all required data
           if (fullMemberData.creditBalance !== undefined && !isResolved) {
@@ -199,7 +205,8 @@ class Prima789Service {
         });
 
         if (response && response.success && response.data) {
-          fullMemberData.creditBalance = response.data.total_credit;
+          fullMemberData.creditBalance =
+            parseFloat(response.data.total_credit) || 0;
 
           // Check if we have all required data
           if (fullMemberData.primaUsername && !isResolved) {
@@ -255,6 +262,7 @@ class Prima789Service {
    */
   formatUserData(rawData) {
     return {
+      phone: rawData.phone || "N/A",
       primaUsername: rawData.primaUsername || "N/A",
       firstName: rawData.firstName || "",
       lastName: rawData.lastName || "",
@@ -273,12 +281,12 @@ class Prima789Service {
    */
   formatCreditBalance(balance) {
     if (balance === undefined || balance === null) {
-      return "N/A";
+      return "0.00";
     }
 
     const numericBalance = parseFloat(balance);
     if (isNaN(numericBalance)) {
-      return "N/A";
+      return "0.00";
     }
 
     return numericBalance.toLocaleString("th-TH", {

@@ -1,4 +1,4 @@
-// netlify/functions/api.js - Production-ready API handler
+// netlify/functions/api.js - Fixed Production-ready API handler
 
 const config = require("../../config/config");
 const logger = require("../../utils/logger");
@@ -8,8 +8,8 @@ const {
   ValidationError,
   AuthenticationError,
   validateRequired,
-  validatePhoneNumberOrThrow, // ใช้ชื่อที่ถูกต้อง
-  validatePINOrThrow, // ใช้ชื่อที่ถูกต้อง
+  validatePhoneNumberOrThrow,
+  validatePINOrThrow,
 } = require("../../utils/errors");
 
 // Services
@@ -151,15 +151,16 @@ async function handleStatusCheck(event) {
   if (userMapping) {
     // User is synced - return member data
     const memberData = {
+      phone: userMapping.prima_phone || userMapping.prima_username,
       primaUsername: userMapping.prima_username,
-      memberTier: "Standard", // Could be enhanced to fetch from Prima789
-      creditBalance: "N/A", // Could be enhanced to fetch real-time data
+      memberTier: userMapping.member_tier || "Standard",
+      creditBalance: userMapping.credit_balance || "0.00",
       syncedAt: userMapping.updated_at,
     };
 
     logger.info("Status check - user synced", {
       lineUserId: lineUserId.substring(0, 10) + "***",
-      primaUsername: userMapping.prima_username.replace(/./g, "*"),
+      primaUsername: userMapping.prima_username?.replace(/./g, "*"),
     });
 
     return createResponse({
@@ -183,9 +184,6 @@ async function handleStatusCheck(event) {
  * POST /api/sync
  */
 async function handleSync(event) {
-  // Authenticate request
-  const lineUserId = await lineAuthService.authenticateRequest(event.headers);
-
   // Parse and validate request body
   let requestData;
   try {
@@ -194,19 +192,24 @@ async function handleSync(event) {
     throw new ValidationError("Invalid JSON in request body");
   }
 
-  const { username, password } = requestData;
+  const {
+    lineUserId,
+    lineDisplayName,
+    phone,
+    primaUsername,
+    memberTier,
+    creditBalance,
+  } = requestData;
 
   // Validate required fields
-  validateRequired(username, "username");
-  validateRequired(password, "password");
-
-  // Validate field formats - ใช้ชื่อฟังก์ชันที่ถูกต้อง
-  validatePhoneNumberOrThrow(username);
-  validatePINOrThrow(password);
+  validateRequired(lineUserId, "lineUserId");
+  validateRequired(phone, "phone");
+  validateRequired(primaUsername, "primaUsername");
 
   // Log sync attempt
   const clientIP = event.headers["x-forwarded-for"] || "unknown";
   const userAgent = event.headers["user-agent"] || "unknown";
+
   await databaseService.logSession(
     lineUserId,
     "sync_attempt",
@@ -216,21 +219,21 @@ async function handleSync(event) {
 
   logger.info("Sync attempt started", {
     lineUserId: lineUserId.substring(0, 10) + "***",
-    username: username.replace(/\d(?=\d{4})/g, "*"),
+    phone: phone.replace(/\d(?=\d{4})/g, "*"),
   });
 
   try {
-    // Authenticate with Prima789
-    const memberData = await prima789Service.authenticateUser(
-      username,
-      password
-    );
+    // Save user mapping to database with additional Prima789 data
+    const mappingData = {
+      line_user_id: lineUserId,
+      line_display_name: lineDisplayName || "",
+      prima_username: primaUsername,
+      prima_phone: phone,
+      member_tier: memberTier || "Standard",
+      credit_balance: creditBalance || "0.00",
+    };
 
-    // Save user mapping to database
-    await databaseService.upsertUserMapping(
-      lineUserId,
-      memberData.primaUsername
-    );
+    await databaseService.upsertUserMappingWithData(mappingData);
 
     // Log successful sync
     await databaseService.logSession(
@@ -242,12 +245,18 @@ async function handleSync(event) {
 
     logger.info("Sync completed successfully", {
       lineUserId: lineUserId.substring(0, 10) + "***",
-      primaUsername: memberData.primaUsername.replace(/./g, "*"),
+      primaUsername: primaUsername.replace(/./g, "*"),
     });
 
     return createResponse({
       synced: true,
-      memberData,
+      memberData: {
+        phone: phone,
+        primaUsername: primaUsername,
+        memberTier: memberTier || "Standard",
+        creditBalance: creditBalance || "0.00",
+        syncedAt: new Date().toISOString(),
+      },
     });
   } catch (error) {
     // Log failed sync
@@ -260,7 +269,7 @@ async function handleSync(event) {
 
     logger.warn("Sync failed", {
       lineUserId: lineUserId.substring(0, 10) + "***",
-      username: username.replace(/\d(?=\d{4})/g, "*"),
+      phone: phone.replace(/\d(?=\d{4})/g, "*"),
       error: error.message,
     });
 
@@ -308,6 +317,7 @@ async function handleHealthCheck(event) {
         checks: healthChecks,
         timestamp: new Date().toISOString(),
         version: "1.0.0",
+        environment: process.env.NODE_ENV || "development",
       },
       statusCode
     );
