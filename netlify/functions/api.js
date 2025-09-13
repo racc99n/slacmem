@@ -37,12 +37,6 @@ async function authMiddleware(headers) {
   return mockLineUserId;
 }
 
-/**
- * ฟังก์ชันยืนยันตัวตนและดึงข้อมูลจาก Prima789 ผ่าน Socket.IO
- * @param {string} phone - เบอร์โทรศัพท์
- * @param {string} pin - PIN 4 ตัว
- * @returns {Promise<object>} - ข้อมูลสมาชิกที่สมบูรณ์
- */
 function authenticateAndGetData(phone, pin) {
   return new Promise((resolve, reject) => {
     console.log(`Attempting to login via Socket.IO for phone: ${phone}`);
