@@ -1,64 +1,140 @@
-# 🔧 Step-by-step fix for Netlify Functions Dependencies
+# 🏆 RECOMMENDED SOLUTION: วิธีที่ 2 (Single Domain)
+# เหตุผล: ง่ายที่สุด, ไม่ต้องจัดการหลาย domain
 
-echo "🚀 Fixing Netlify Functions Dependencies..."
+echo "🚀 Quick Fix: Use Single Domain Solution"
+echo "========================================"
 
-# Step 1: ติดตั้ง Dependencies ที่จำเป็น
-echo "📦 Installing required dependencies..."
-npm install pg@^8.11.3 jsonwebtoken@^9.0.2 dotenv@^16.3.1 cors@^2.8.5
-
-# Step 2: ติดตั้ง Dev Dependencies
-echo "🛠️  Installing dev dependencies..."
-npm install --save-dev @types/node@^20.10.0
-
-# Step 3: ตรวจสอบการติดตั้ง
-echo "🔍 Verifying installations..."
-node -pe "require('pg'); console.log('✅ pg installed')"
-node -pe "require('jsonwebtoken'); console.log('✅ jsonwebtoken installed')"
-node -pe "require('dotenv'); console.log('✅ dotenv installed')"
-
-# Step 4: ตรวจสอบ package.json
-echo "📋 Checking package.json..."
-echo "Current dependencies:"
-cat package.json | grep -A 10 '"dependencies"' || echo "No dependencies section found"
-
-# Step 5: ทดสอบ Netlify Functions bundling
-echo "📦 Testing Netlify Functions bundling..."
-if command -v netlify &> /dev/null; then
-    netlify functions:build
-    if [ $? -eq 0 ]; then
-        echo "✅ Functions bundling successful!"
-    else
-        echo "❌ Functions bundling failed"
-    fi
+# 1. ตรวจสอบว่ามีไฟล์ HTML ในโปรเจค
+echo "📁 Step 1: Check HTML files..."
+if [ -f "prima789-liff-member-card.html" ]; then
+    echo "✅ prima789-liff-member-card.html found"
 else
-    echo "⚠️  Netlify CLI not found, install with: npm install -g netlify-cli"
+    echo "❌ prima789-liff-member-card.html NOT found"
+    echo "   Please create or move HTML files to project root"
 fi
 
-# Step 6: ทดสোบ local development
-echo "🌐 Testing local development..."
-if command -v netlify &> /dev/null; then
-    echo "Starting Netlify Dev (will run in background for 10 seconds)..."
-    timeout 10s netlify dev --port 8888 &
-    DEV_PID=$!
+# 2. อัพเดต netlify.toml
+echo "📝 Step 2: Update netlify.toml..."
+cat > netlify.toml << 'EOF'
+[build]
+  command = "npm run build"
+  functions = "netlify/functions"
+  publish = "."
+
+# API redirects
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+# Headers for HTML files
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    X-Frame-Options = "ALLOWALL"
+    Access-Control-Allow-Origin = "*"
+
+# Headers for Functions
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "https://slaczcardmem.netlify.app, https://liff.line.me"
+    Access-Control-Allow-Headers = "Content-Type, Authorization, X-LINE-User-ID"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+EOF
+
+echo "✅ netlify.toml updated"
+
+# 3. สร้าง index.html
+echo "📄 Step 3: Create homepage..."
+cat > index.html << 'EOF'
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prima789 Member System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="container mx-auto px-4 py-16 text-center">
+        <h1 class="text-4xl font-bold mb-8 text-yellow-400">🎰 Prima789</h1>
+        <p class="text-xl mb-12 text-gray-300">ระบบสมาชิกออนไลน์</p>
+        
+        <div class="max-w-md mx-auto space-y-4">
+            <a href="/prima789-liff-member-card.html" 
+               class="block bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-4 px-8 rounded-lg transition duration-300">
+                📱 เปิด Member Card
+            </a>
+            
+            <div class="mt-8 p-4 bg-gray-800 rounded-lg text-sm">
+                <div id="status" class="text-gray-400">กำลังตรวจสอบระบบ...</div>
+            </div>
+        </div>
+    </div>
     
-    sleep 5
-    echo "Testing health endpoint..."
-    curl -s http://localhost:8888/.netlify/functions/api/health || echo "Local test completed"
-    
-    kill $DEV_PID 2>/dev/null
-    wait $DEV_PID 2>/dev/null
-fi
+    <script>
+        fetch('/.netlify/functions/api/health')
+            .then(r => r.json())
+            .then(d => {
+                document.getElementById('status').innerHTML = 
+                    `<span class="text-green-400">✅ ระบบพร้อมใช้งาน</span><br>
+                     <small>Version: ${d.version} | Env: ${d.environment}</small>`;
+            })
+            .catch(e => {
+                document.getElementById('status').innerHTML = 
+                    `<span class="text-red-400">❌ ระบบขัดข้อง</span>`;
+            });
+    </script>
+</body>
+</html>
+EOF
+
+echo "✅ index.html created"
+
+# 4. Deploy
+echo "🚀 Step 4: Deploy..."
+git add .
+git commit -m "Fix: Add HTML files and configure single domain"
+git push origin main
+
+# 5. Update LINE Console
+echo ""
+echo "📱 Step 5: UPDATE LINE LIFF CONSOLE"
+echo "===================================="
+echo "🔑 Change Endpoint URL to:"
+echo "https://slaczcardmem.netlify.app/prima789-liff-member-card.html"
+echo ""
+echo "📋 Add Callback URLs:"
+echo "- https://slaczcardmem.netlify.app/"
+echo "- https://slaczcardmem.netlify.app/prima789-liff-member-card.html"
+echo "- https://liff.line.me/2008101230-z37JaYn1"
+echo ""
+
+# 6. Test commands
+echo "🧪 Step 6: Test after deployment"
+echo "================================="
+echo ""
+echo "# Test homepage:"
+echo "curl https://slaczcardmem.netlify.app/"
+echo ""
+echo "# Test LIFF app:"
+echo "curl https://slaczcardmem.netlify.app/prima789-liff-member-card.html"
+echo ""
+echo "# Test API:"
+echo "curl https://slaczcardmem.netlify.app/.netlify/functions/api/health"
 
 echo ""
-echo "✅ Dependencies fix completed!"
+echo "✅ SOLUTION SUMMARY"
+echo "==================="
+echo "🎯 Domain: slaczcardmem.netlify.app (single domain for everything)"
+echo "🏠 Homepage: https://slaczcardmem.netlify.app/"
+echo "📱 LIFF App: https://slaczcardmem.netlify.app/prima789-liff-member-card.html"
+echo "🔌 API: https://slaczcardmem.netlify.app/.netlify/functions/api/"
 echo ""
-echo "📋 What was installed:"
-echo "  - pg (PostgreSQL driver)"
-echo "  - jsonwebtoken (JWT handling)"  
-echo "  - dotenv (environment variables)"
-echo "  - cors (Cross-origin resource sharing)"
-echo ""
-echo "🚀 Next commands to try:"
-echo "  npm run dev    # Start development server"
-echo "  npm test       # Run tests"
-echo "  netlify deploy # Deploy to production"
+echo "⚡ This solution is:"
+echo "✅ Simplest to manage"
+echo "✅ No DNS configuration needed"
+echo "✅ Single SSL certificate"
+echo "✅ No CORS issues"
+echo "✅ Works immediately after deployment"

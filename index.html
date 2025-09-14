@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prima789 Member System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="container mx-auto px-4 py-16 text-center">
+        <h1 class="text-4xl font-bold mb-8 text-yellow-400">🎰 Prima789</h1>
+        <p class="text-xl mb-12 text-gray-300">ระบบสมาชิกออนไลน์</p>
+        
+        <div class="max-w-md mx-auto space-y-4">
+            <a href="/prima789-liff-member-card.html" 
+               class="block bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-4 px-8 rounded-lg transition duration-300">
+                📱 เปิด Member Card
+            </a>
+            
+            <div class="mt-8 p-4 bg-gray-800 rounded-lg text-sm">
+                <div id="status" class="text-gray-400">กำลังตรวจสอบระบบ...</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        fetch('/.netlify/functions/api/health')
+            .then(r => r.json())
+            .then(d => {
+                document.getElementById('status').innerHTML = 
+                    `<span class="text-green-400">✅ ระบบพร้อมใช้งาน</span><br>
+                     <small>Version: ${d.version} | Env: ${d.environment}</small>`;
+            })
+            .catch(e => {
+                document.getElementById('status').innerHTML = 
+                    `<span class="text-red-400">❌ ระบบขัดข้อง</span>`;
+            });
+    </script>
+</body>
+</html>

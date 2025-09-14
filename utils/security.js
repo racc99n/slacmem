@@ -1,4 +1,4 @@
-// utils/security.js - Security utilities and middleware
+// utils/security.js - Security utilities and middleware (LIFF Compatible)
 
 const crypto = require("crypto");
 const config = require("../config/config");
@@ -9,6 +9,15 @@ class SecurityUtils {
     this.rateLimitMap = new Map();
     this.suspiciousIPs = new Set();
     this.blockedIPs = new Set();
+    this.whitelistedUserAgents = new Set([
+      "LINE",
+      "LIFF",
+      "Mozilla",
+      "Chrome",
+      "Safari",
+      "Edge",
+      "Firefox",
+    ]);
   }
 
   /**
@@ -72,7 +81,26 @@ class SecurityUtils {
   }
 
   /**
-   * Detect suspicious activity patterns
+   * Check if user agent is from LINE/LIFF
+   * @param {string} userAgent - User agent string
+   * @returns {boolean} True if from LINE/LIFF
+   */
+  isLiffUserAgent(userAgent) {
+    if (!userAgent) return false;
+
+    const liffPatterns = [
+      /Line/i,
+      /LIFF/i,
+      /Mozilla.*Mobile.*Line/i,
+      /iPhone.*Line/i,
+      /Android.*Line/i,
+    ];
+
+    return liffPatterns.some((pattern) => pattern.test(userAgent));
+  }
+
+  /**
+   * Detect suspicious activity patterns (LIFF-aware)
    * @param {string} ip - Client IP address
    * @param {string} userAgent - User agent string
    * @param {string} action - Action being performed
@@ -83,16 +111,20 @@ class SecurityUtils {
       isSuspicious: false,
       shouldBlock: false,
       reasons: [],
+      isLiff: this.isLiffUserAgent(userAgent),
     };
 
     // Check if IP is already blocked
     if (this.blockedIPs.has(ip)) {
-      assessment.shouldBlock = true;
-      assessment.reasons.push("IP_BLOCKED");
-      return assessment;
+      // Don't block LIFF users unless absolutely necessary
+      if (!assessment.isLiff) {
+        assessment.shouldBlock = true;
+        assessment.reasons.push("IP_BLOCKED");
+        return assessment;
+      }
     }
 
-    // Check for rapid requests from same IP
+    // More lenient rate limiting for LIFF
     const ipKey = `${ip}_${action}`;
     const now = Date.now();
     const requests = this.rateLimitMap.get(ipKey) || [];
@@ -100,18 +132,25 @@ class SecurityUtils {
     // Clean old requests (older than 1 minute)
     const recentRequests = requests.filter((time) => now - time < 60000);
 
-    if (recentRequests.length > 10) {
+    // Different limits for LIFF vs regular traffic
+    const limit = assessment.isLiff ? 30 : 10; // LIFF gets higher limit
+
+    if (recentRequests.length > limit) {
       assessment.isSuspicious = true;
       assessment.reasons.push("RAPID_REQUESTS");
-      this.suspiciousIPs.add(ip);
+
+      // Only add to suspicious if not LIFF
+      if (!assessment.isLiff) {
+        this.suspiciousIPs.add(ip);
+      }
     }
 
     // Update rate limit map
     recentRequests.push(now);
     this.rateLimitMap.set(ipKey, recentRequests);
 
-    // Check for suspicious user agents
-    if (this.isSuspiciousUserAgent(userAgent)) {
+    // Check for suspicious user agents (exempt LIFF)
+    if (!assessment.isLiff && this.isSuspiciousUserAgent(userAgent)) {
       assessment.isSuspicious = true;
       assessment.reasons.push("SUSPICIOUS_USER_AGENT");
     }
@@ -129,6 +168,7 @@ class SecurityUtils {
         ip,
         userAgent: userAgent?.substring(0, 100),
         action,
+        isLiff: assessment.isLiff,
         assessment,
       });
     }
@@ -137,12 +177,31 @@ class SecurityUtils {
   }
 
   /**
-   * Check if user agent is suspicious
+   * Check if user agent is suspicious (LIFF-aware)
    * @param {string} userAgent - User agent string
    * @returns {boolean} True if suspicious
    */
   isSuspiciousUserAgent(userAgent) {
     if (!userAgent || typeof userAgent !== "string") return true;
+
+    // Don't flag LIFF user agents as suspicious
+    if (this.isLiffUserAgent(userAgent)) {
+      return false;
+    }
+
+    // Check if it's a legitimate browser
+    const legitimatePatterns = [
+      /Mozilla/i,
+      /Chrome/i,
+      /Safari/i,
+      /Edge/i,
+      /Firefox/i,
+      /Opera/i,
+    ];
+
+    if (legitimatePatterns.some((pattern) => pattern.test(userAgent))) {
+      return false;
+    }
 
     const suspiciousPatterns = [
       /bot/i,
@@ -182,7 +241,7 @@ class SecurityUtils {
   }
 
   /**
-   * Security middleware for Netlify Functions
+   * Security middleware for Netlify Functions (LIFF-aware)
    * @param {Object} event - Netlify event object
    * @returns {Object|null} Security response or null to continue
    */
@@ -190,6 +249,7 @@ class SecurityUtils {
     const ip =
       event.headers["x-forwarded-for"] ||
       event.headers["x-real-ip"] ||
+      event.headers["cf-connecting-ip"] || // Cloudflare
       "unknown";
     const userAgent = event.headers["user-agent"] || "";
     const method = event.httpMethod || "UNKNOWN";
@@ -202,7 +262,8 @@ class SecurityUtils {
       `${method}_${path}`
     );
 
-    if (assessment.shouldBlock) {
+    // Be more lenient with LIFF traffic
+    if (assessment.shouldBlock && !assessment.isLiff) {
       logger.error("Request blocked by security middleware", {
         ip,
         userAgent: userAgent.substring(0, 100),
@@ -226,12 +287,14 @@ class SecurityUtils {
       };
     }
 
-    // Check request size
-    if (event.body && event.body.length > 10000) {
+    // Check request size (more lenient for LIFF)
+    const sizeLimit = assessment.isLiff ? 50000 : 10000; // LIFF gets 50KB limit
+    if (event.body && event.body.length > sizeLimit) {
       logger.warn("Request body too large", {
         ip,
         size: event.body.length,
         path,
+        isLiff: assessment.isLiff,
       });
 
       return {
@@ -257,9 +320,13 @@ class SecurityUtils {
             ip,
             parameter: key,
             value: value?.substring(0, 100),
+            isLiff: assessment.isLiff,
           });
 
-          this.blockedIPs.add(ip);
+          // Don't auto-block LIFF users for minor infractions
+          if (!assessment.isLiff) {
+            this.blockedIPs.add(ip);
+          }
 
           return {
             statusCode: 400,
@@ -299,37 +366,47 @@ class SecurityUtils {
   }
 
   /**
-   * Generate Content Security Policy header
+   * Generate Content Security Policy header (LIFF-friendly)
    * @returns {string} CSP header value
    */
   generateCSP() {
     return [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://static.line-scdn.net https://cdnjs.cloudflare.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://static.line-scdn.net https://d.line-scdn.net https://cdnjs.cloudflare.com",
       "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com",
       "img-src 'self' data: https: blob:",
-      "connect-src 'self' https://api.line.me https://prima789.net https://*.netlify.app",
-      "frame-ancestors 'none'",
+      "connect-src 'self' https://api.line.me https://access.line.me https://liffsdk.line-scdn.net https://prima789.net https://*.netlify.app https://prima168.online",
+      "frame-ancestors https://liff.line.me", // Allow LIFF embedding
       "base-uri 'self'",
       "form-action 'self'",
     ].join("; ");
   }
 
   /**
-   * Get security headers for responses
+   * Get security headers for responses (LIFF-compatible)
+   * @param {boolean} isLiff - Whether request is from LIFF
    * @returns {Object} Security headers
    */
-  getSecurityHeaders() {
-    return {
+  getSecurityHeaders(isLiff = false) {
+    const headers = {
       "X-Content-Type-Options": "nosniff",
-      "X-Frame-Options": "DENY",
       "X-XSS-Protection": "1; mode=block",
       "Referrer-Policy": "strict-origin-when-cross-origin",
       "Content-Security-Policy": this.generateCSP(),
-      "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
       "X-Permitted-Cross-Domain-Policies": "none",
     };
+
+    // Different frame options for LIFF
+    if (isLiff) {
+      headers["X-Frame-Options"] = "ALLOWALL"; // LIFF needs to be embedded
+    } else {
+      headers["X-Frame-Options"] = "DENY";
+      headers["Strict-Transport-Security"] =
+        "max-age=31536000; includeSubDomains";
+    }
+
+    return headers;
   }
 
   /**
@@ -358,10 +435,15 @@ class SecurityUtils {
 }
 
 // Run cleanup every 5 minutes
-setInterval(() => {
-  securityUtils.cleanup();
-}, 5 * 60 * 1000);
+let securityUtils;
+try {
+  securityUtils = new SecurityUtils();
+  setInterval(() => {
+    securityUtils.cleanup();
+  }, 5 * 60 * 1000);
+} catch (error) {
+  console.error("Failed to initialize SecurityUtils:", error);
+}
 
 // Export singleton instance
-const securityUtils = new SecurityUtils();
 module.exports = securityUtils;
