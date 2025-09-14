@@ -3,13 +3,6 @@
   functions = "netlify/functions"
   publish = "."
 
-# Proxy for Socket.IO to bypass CORS
-[[redirects]]
-  from = "/socket.io/*"
-  to = "https://prima789.net/socket.io/:splat"
-  status = 200
-  force = true
-
 # API redirects
 [[redirects]]
   from = "/api/*"
