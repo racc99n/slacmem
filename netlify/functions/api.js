@@ -1,4 +1,4 @@
-// netlify/functions/api.js - Final Production Version
+// netlify/functions/api.js - Final Version with Correct Socket Path
 const { Pool } = require("@neondatabase/serverless");
 const { io } = require("socket.io-client");
 
@@ -8,7 +8,7 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Database connection (เหมือนเดิม)
+// Database connection
 let pool;
 try {
   pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -17,12 +17,13 @@ try {
   pool = null;
 }
 
-// ===== NEW: Prima789 Socket.IO Service =====
+// ===== Prima789 Socket.IO Service with Correct Path =====
 function getPrima789Data(phone, pin) {
   return new Promise((resolve, reject) => {
+    // *** The KEY CHANGE is here: use the default path '/socket.io/' ***
     const socket = io("https://api.prima789.net", {
       transports: ["polling", "websocket"],
-      path: "/api/", // Path สำหรับ Socket.IO ของ Prima789
+      path: "/socket.io/", // Corrected Path
     });
 
     let userData = {};
@@ -32,23 +33,20 @@ function getPrima789Data(phone, pin) {
       if (!resolved) {
         resolved = true;
         socket.disconnect();
-        reject(new Error("การเชื่อมต่อหมดเวลา กรุณาลองใหม่อีกครั้ง"));
+        reject(new Error("การเชื่อมต่อหมดเวลา (Timeout) กรุณาลองใหม่อีกครั้ง"));
       }
-    }, 25000); // 25 วินาที
+    }, 25000); // 25 seconds
 
     socket.on("connect", () => {
-      console.log("Socket connected to api.prima789.net");
-      // ส่ง event login ไปที่ server จริง
+      console.log("Socket connected successfully to api.prima789.net");
       socket.emit("login", { tel: phone, pin: pin });
     });
 
-    // ดักฟัง event ที่มีข้อมูลผู้ใช้
     socket.on("customer_data", (data) => {
-      console.log("Received customer_data:", data);
+      console.log("Received customer_data");
       userData.prima_username = data.mm_user;
       userData.first_name = data.first_name;
       userData.last_name = data.last_name;
-      // หากได้รับข้อมูลครบแล้ว ให้ resolve
       if (userData.credit_balance !== undefined && !resolved) {
         resolved = true;
         clearTimeout(operationTimeout);
@@ -57,13 +55,11 @@ function getPrima789Data(phone, pin) {
       }
     });
 
-    // ดักฟัง event ที่มีข้อมูลเครดิต
     socket.on("credit_push", (data) => {
-      console.log("Received credit_push:", data);
+      console.log("Received credit_push");
       if (data.success) {
         userData.credit_balance = parseFloat(data.data.total_credit) || 0;
       }
-      // หากได้รับข้อมูลครบแล้ว ให้ resolve
       if (userData.prima_username && !resolved) {
         resolved = true;
         clearTimeout(operationTimeout);
@@ -83,6 +79,7 @@ function getPrima789Data(phone, pin) {
     });
 
     socket.on("connect_error", (err) => {
+      console.error("Socket Connection Error:", err.message);
       if (!resolved) {
         resolved = true;
         clearTimeout(operationTimeout);
@@ -96,7 +93,7 @@ function getPrima789Data(phone, pin) {
   });
 }
 
-// Response helper (เหมือนเดิม)
+// Response helper
 function createResponse(statusCode, body) {
   return {
     statusCode,
@@ -111,7 +108,7 @@ exports.handler = async (event) => {
     return { statusCode: 204, headers: CORS_HEADERS, body: "" };
   }
 
-  if (event.path.endsWith("/user/sync") && event.httpMethod === "POST") {
+  if (event.path.endsWith("/user/verify") && event.httpMethod === "POST") {
     if (!pool) {
       return createResponse(500, { error: "Database not connected" });
     }
@@ -122,12 +119,8 @@ exports.handler = async (event) => {
         return createResponse(400, { error: "กรุณากรอกเบอร์โทรศัพท์และ PIN" });
       }
 
-      // 1. Get fresh data from Prima789 using Socket.IO
-      console.log(`Fetching data for phone: ${phone}`);
       const primaData = await getPrima789Data(phone, pin);
-      console.log("Successfully fetched Prima789 data:", primaData);
 
-      // 2. Check if user exists in our DB
       const { rows } = await pool.query(
         "SELECT * FROM users WHERE phone = $1",
         [phone]
@@ -135,7 +128,6 @@ exports.handler = async (event) => {
       let user = rows[0];
 
       if (user) {
-        // 3a. User exists, UPDATE their data
         const updateResult = await pool.query(
           `UPDATE users SET prima_username = $2, first_name = $3, last_name = $4, credit_balance = $5, updated_at = NOW() 
            WHERE phone = $1 RETURNING *`,
@@ -148,9 +140,7 @@ exports.handler = async (event) => {
           ]
         );
         user = updateResult.rows[0];
-        console.log("User updated:", user.id);
       } else {
-        // 3b. User does not exist, INSERT new record
         const insertResult = await pool.query(
           `INSERT INTO users (phone, prima_username, first_name, last_name, credit_balance, is_active) 
            VALUES ($1, $2, $3, $4, $5, true) RETURNING *`,
@@ -163,10 +153,8 @@ exports.handler = async (event) => {
           ]
         );
         user = insertResult.rows[0];
-        console.log("User created:", user.id);
       }
 
-      // 4. Format and return user data to the client
       const responseData = {
         id: user.id,
         username: user.prima_username,
@@ -174,7 +162,7 @@ exports.handler = async (event) => {
         firstName: user.first_name,
         lastName: user.last_name,
         balance: parseFloat(user.credit_balance),
-        level: "SILVER", // You can add your tier logic back here
+        level: "SILVER",
         isActive: user.is_active,
         lastUpdated: new Date().toISOString(),
         source: "prima789",
@@ -186,7 +174,7 @@ exports.handler = async (event) => {
         user: responseData,
       });
     } catch (error) {
-      console.error("Verification error:", error);
+      console.error("Handler Error:", error);
       return createResponse(500, {
         error: error.message || "เกิดข้อผิดพลาดในระบบ",
       });
