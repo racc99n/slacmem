@@ -5,39 +5,136 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>เชื่อมต่อ Prima789</title>
     
-    <!-- Local Tailwind CSS -->
-    <link rel="stylesheet" href="public/assets/tailwind.min.css">
+    <!-- Socket.IO Client -->
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
     
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
         }
         
-        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        /* Utility Classes */
+        .hidden { display: none !important; }
+        .flex { display: flex; }
+        .items-center { align-items: center; }
+        .justify-center { justify-content: center; }
+        .justify-between { justify-content: space-between; }
+        .text-center { text-align: center; }
+        .w-full { width: 100%; }
+        .max-w-md { max-width: 28rem; margin: 0 auto; }
+        .min-h-screen { min-height: 100vh; }
         
+        /* Spacing */
+        .p-4 { padding: 1rem; }
+        .p-6 { padding: 1.5rem; }
+        .px-4 { padding-left: 1rem; padding-right: 1rem; }
+        .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+        .mb-2 { margin-bottom: 0.5rem; }
+        .mb-4 { margin-bottom: 1rem; }
+        .mb-6 { margin-bottom: 1.5rem; }
+        .mb-8 { margin-bottom: 2rem; }
+        .mt-1 { margin-top: 0.25rem; }
+        .mt-6 { margin-top: 1.5rem; }
+        .mr-3 { margin-right: 0.75rem; }
+        .ml-2 { margin-left: 0.5rem; }
+        .space-x-3 > * + * { margin-left: 0.75rem; }
+        .space-y-2 > * + * { margin-top: 0.5rem; }
+        .space-y-3 > * + * { margin-top: 0.75rem; }
+        
+        /* Colors */
+        .text-amber-400 { color: #fbbf24; }
+        .text-gray-300 { color: #d1d5db; }
+        .text-gray-400 { color: #9ca3af; }
+        .text-red-300 { color: #fca5a5; }
+        .text-green-300 { color: #86efac; }
+        .text-green-400 { color: #4ade80; }
+        .text-blue-300 { color: #93c5fd; }
+        .text-yellow-300 { color: #fde047; }
+        
+        .bg-gray-800 { background-color: #1f2937; }
+        .bg-gray-900 { background-color: #111827; }
+        .bg-green-600 { background-color: #16a34a; }
+        .bg-green-900 { background-color: #14532d; }
+        .bg-red-900 { background-color: #7f1d1d; }
+        .bg-blue-900 { background-color: #1e3a8a; }
+        .bg-yellow-900 { background-color: #713f12; }
+        
+        .bg-opacity-20 { background-color: rgb(var(--tw-bg-opacity) / 0.2); }
+        
+        .border { border-width: 1px; }
+        .border-gray-600 { border-color: #4b5563; }
+        .border-green-500 { border-color: #22c55e; }
+        .border-red-500 { border-color: #ef4444; }
+        .border-blue-500 { border-color: #3b82f6; }
+        .border-yellow-500 { border-color: #eab308; }
+        .border-opacity-30 { border-color: rgb(var(--tw-border-opacity) / 0.3); }
+        
+        /* Typography */
+        .text-xs { font-size: 0.75rem; }
+        .text-sm { font-size: 0.875rem; }
+        .text-lg { font-size: 1.125rem; }
+        .text-xl { font-size: 1.25rem; }
+        .text-2xl { font-size: 1.5rem; }
+        .font-bold { font-weight: 700; }
+        .font-medium { font-weight: 500; }
+        
+        /* Layout */
+        .rounded-lg { border-radius: 0.5rem; }
+        .rounded-full { border-radius: 9999px; }
+        .flex-1 { flex: 1; }
+        
+        /* Sizing */
+        .w-3 { width: 0.75rem; }
+        .h-3 { height: 0.75rem; }
+        .w-12 { width: 3rem; }
+        .h-12 { height: 3rem; }
+        .w-16 { width: 4rem; }
+        .h-16 { height: 4rem; }
+        .w-20 { width: 5rem; }
+        .h-20 { height: 5rem; }
+        
+        /* Custom Components */
         .form-input {
             background-color: #374151;
             border: 1px solid #4b5563;
+            color: #ffffff;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            width: 100%;
             transition: all 0.3s ease;
         }
         
         .form-input:focus {
-            border-color: #f59e0b;
-            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+            outline: none;
+            border-color: #fbbf24;
+            box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
+        }
+        
+        .btn {
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 700;
+            text-align: center;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s ease;
+            display: inline-block;
+            text-decoration: none;
         }
         
         .btn-primary {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            color: #1f2937;
         }
         
         .btn-primary:hover:not(:disabled) {
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+            box-shadow: 0 4px 12px rgba(251, 191, 36, 0.4);
         }
         
         .btn-primary:disabled {
@@ -48,7 +145,7 @@
         
         .loading-spinner {
             border: 3px solid #374151;
-            border-top: 3px solid #f59e0b;
+            border-top: 3px solid #fbbf24;
             border-radius: 50%;
             width: 20px;
             height: 20px;
@@ -60,6 +157,15 @@
             100% { transform: rotate(360deg); }
         }
         
+        .fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
         .status-dot {
             width: 8px;
             height: 8px;
@@ -68,28 +174,70 @@
             margin-right: 8px;
         }
         
-        .status-online { background-color: #10b981; }
-        .status-offline { background-color: #ef4444; }
-        .status-connecting { background-color: #f59e0b; animation: pulse 1s infinite; }
+        .status-online { background-color: #16a34a; }
+        .status-offline { background-color: #dc2626; }
+        .status-connecting { 
+            background-color: #fbbf24; 
+            animation: pulse 1s infinite; 
+        }
         
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: .5; }
         }
+        
+        /* Progress Steps */
+        .step-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+        
+        .step {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin: 0 0.5rem;
+        }
+        
+        .step.completed { background-color: #16a34a; color: white; }
+        .step.active { background-color: #fbbf24; color: #1f2937; }
+        .step.pending { background-color: #4b5563; color: #9ca3af; }
+        
+        .step-line {
+            width: 2rem;
+            height: 2px;
+            background-color: #4b5563;
+        }
+        
+        .step-line.completed { background-color: #16a34a; }
     </style>
 </head>
 
-<body class="bg-gray-900 text-white min-h-screen p-4">
-
-    <div class="max-w-md mx-auto mt-8">
+<body class="min-h-screen p-4">
+    <div class="max-w-md mt-8">
         
         <!-- Header -->
         <div class="text-center mb-8 fade-in">
-            <div class="w-20 h-20 bg-amber-400 rounded-full mx-auto mb-4 flex items-center justify-center">
-                <span class="text-3xl">🎰</span>
+            <div class="w-20 h-20 bg-amber-400 rounded-full mb-4 flex items-center justify-center" style="margin: 0 auto;">
+                <span style="font-size: 2rem;">🎰</span>
             </div>
             <h1 class="text-2xl font-bold text-amber-400 mb-2">เชื่อมต่อ Prima789</h1>
             <p class="text-gray-300">กรุณากรอกข้อมูลเพื่อเชื่อมต่อบัญชี</p>
+        </div>
+
+        <!-- Progress Steps -->
+        <div class="step-indicator fade-in">
+            <div class="step completed" id="step-1">1</div>
+            <div class="step-line completed" id="line-1"></div>
+            <div class="step active" id="step-2">2</div>
+            <div class="step-line" id="line-2"></div>
+            <div class="step pending" id="step-3">3</div>
         </div>
 
         <!-- LINE User Info -->
@@ -101,27 +249,27 @@
                     <p class="text-sm text-gray-400">LINE Account</p>
                     <p id="line-name" class="font-medium text-white">กำลังโหลด...</p>
                 </div>
-                <div class="text-right">
-                    <div class="w-3 h-3 bg-green-400 rounded-full"></div>
+                <div class="text-center">
+                    <div class="w-3 h-3 bg-green-400 rounded-full" style="margin: 0 auto;"></div>
                     <p class="text-xs text-green-400">ยืนยันแล้ว</p>
                 </div>
             </div>
         </div>
 
-        <!-- Connection Status -->
+        <!-- Prima789 Connection Status -->
         <div class="bg-gray-800 rounded-lg p-3 mb-6 fade-in">
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
-                    <div id="connection-status" class="status-dot status-connecting"></div>
-                    <span class="text-sm">Prima789 Server</span>
+                    <div id="prima-status" class="status-dot status-connecting"></div>
+                    <span class="text-sm">Prima789.net</span>
                 </div>
-                <span id="connection-text" class="text-sm text-gray-400">กำลังเชื่อมต่อ...</span>
+                <span id="prima-status-text" class="text-sm text-gray-400">กำลังเชื่อมต่อ...</span>
             </div>
         </div>
 
         <!-- Connection Form -->
         <div class="bg-gray-800 rounded-lg p-6 mb-6 fade-in">
-            <h2 class="text-lg font-bold mb-4 text-amber-400">ข้อมูลการเข้าสู่ระบบ</h2>
+            <h2 class="text-lg font-bold mb-4 text-amber-400">ข้อมูลการเข้าสู่ระบบ Prima789</h2>
             
             <form id="connection-form">
                 <!-- Phone Number -->
@@ -129,18 +277,13 @@
                     <label class="block mb-2 text-sm font-medium text-gray-300">
                         📱 เบอร์โทรศัพท์
                     </label>
-                    <div class="relative">
-                        <input 
-                            type="tel" 
-                            id="phone-input" 
-                            class="form-input w-full px-4 py-3 rounded-lg text-white focus:outline-none"
-                            placeholder="08X-XXX-XXXX"
-                            maxlength="12"
-                            required>
-                        <div id="phone-feedback" class="absolute right-3 top-3 hidden">
-                            <span class="text-green-400">✓</span>
-                        </div>
-                    </div>
+                    <input 
+                        type="tel" 
+                        id="phone-input" 
+                        class="form-input"
+                        placeholder="08X-XXX-XXXX"
+                        maxlength="12"
+                        required>
                     <p class="text-xs text-gray-400 mt-1">เบอร์โทรศัพท์ที่ใช้กับ Prima789</p>
                 </div>
 
@@ -149,50 +292,50 @@
                     <label class="block mb-2 text-sm font-medium text-gray-300">
                         🔒 รหัส PIN (4 หลัก)
                     </label>
-                    <div class="relative">
-                        <input 
-                            type="password" 
-                            id="pin-input" 
-                            class="form-input w-full px-4 py-3 rounded-lg text-white text-center text-xl tracking-widest focus:outline-none"
-                            placeholder="••••"
-                            maxlength="4"
-                            inputmode="numeric"
-                            required>
-                        <div id="pin-feedback" class="absolute right-3 top-3 hidden">
-                            <span class="text-green-400">✓</span>
-                        </div>
-                    </div>
-                    <p class="text-xs text-gray-400 mt-1">รหัส PIN 4 หลักสำหรับเข้าสู่ระบบ</p>
+                    <input 
+                        type="password" 
+                        id="pin-input" 
+                        class="form-input text-center text-xl"
+                        style="letter-spacing: 0.5rem;"
+                        placeholder="••••"
+                        maxlength="4"
+                        inputmode="numeric"
+                        required>
+                    <p class="text-xs text-gray-400 mt-1">รหัส PIN 4 หลักสำหรับเข้าสู่ระบบ Prima789</p>
                 </div>
 
                 <!-- Submit Button -->
                 <button 
                     type="submit" 
                     id="submit-btn"
-                    class="btn-primary w-full text-gray-900 font-bold py-3 px-4 rounded-lg"
+                    class="btn btn-primary w-full"
                     disabled>
                     <span id="submit-text">เชื่อมต่อบัญชี</span>
-                    <div id="submit-loading" class="loading-spinner ml-2 hidden"></div>
+                    <div id="submit-loading" class="loading-spinner ml-2 hidden" style="display: none;"></div>
                 </button>
             </form>
         </div>
 
-        <!-- Status Messages -->
+        <!-- Real-time Status Messages -->
         <div id="messages" class="space-y-3">
             <!-- Dynamic messages will appear here -->
         </div>
 
         <!-- Success View -->
         <div id="success-view" class="bg-green-900 bg-opacity-20 border border-green-500 border-opacity-30 rounded-lg p-6 text-center hidden fade-in">
-            <div class="w-16 h-16 bg-green-600 rounded-full mx-auto mb-4 flex items-center justify-center">
-                <span class="text-2xl">✅</span>
+            <div class="w-16 h-16 bg-green-600 rounded-full mb-4 flex items-center justify-center" style="margin: 0 auto;">
+                <span style="font-size: 1.5rem;">✅</span>
             </div>
             <h2 class="text-xl font-bold text-green-400 mb-2">เชื่อมต่อสำเร็จ!</h2>
             <p class="text-gray-300 mb-4">บัญชี Prima789 ของคุณเชื่อมต่อกับ LINE แล้ว</p>
             
-            <!-- User Preview -->
+            <!-- User Data Preview -->
             <div id="user-preview" class="bg-gray-800 rounded-lg p-4 mb-6">
-                <div class="space-y-2 text-left">
+                <div class="space-y-2" style="text-align: left;">
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">ชื่อผู้ใช้:</span>
+                        <span id="preview-username" class="font-medium">-</span>
+                    </div>
                     <div class="flex justify-between">
                         <span class="text-gray-400">เบอร์โทรศัพท์:</span>
                         <span id="preview-phone" class="font-medium">-</span>
@@ -203,26 +346,27 @@
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-400">เครดิต:</span>
-                        <span id="preview-balance" class="font-bold text-amber-300">฿0.00</span>
+                        <span id="preview-balance" class="font-bold text-amber-400">฿0.00</span>
                     </div>
                 </div>
             </div>
 
-            <button id="back-btn" class="btn-primary text-gray-900 font-bold py-3 px-6 rounded-lg w-full">
+            <button id="back-btn" class="btn btn-primary w-full">
                 กลับสู่บัตรสมาชิก
             </button>
         </div>
-
     </div>
 
     <script>
         // Configuration
         const API_BASE_URL = '/.netlify/functions/api';
+        const PRIMA789_URL = 'https://prima789.net';
         
         // Global variables
         let lineUserId = null;
         let lineDisplayName = null;
         let isConnecting = false;
+        let currentSocket = null;
         
         // Initialize page
         function init() {
@@ -244,10 +388,8 @@
             // Setup form handlers
             setupFormHandlers();
             
-            // Simulate server connection
-            setTimeout(() => {
-                updateConnectionStatus('online', 'เชื่อมต่อแล้ว');
-            }, 2000);
+            // Test Prima789 connection
+            testPrima789Connection();
         }
         
         // Display LINE user information
@@ -263,10 +405,43 @@
             }
         }
         
-        // Update connection status
-        function updateConnectionStatus(status, message) {
-            const statusEl = document.getElementById('connection-status');
-            const textEl = document.getElementById('connection-text');
+        // Test Prima789 connection
+        function testPrima789Connection() {
+            updatePrimaStatus('connecting', 'กำลังทดสอบการเชื่อมต่อ...');
+            
+            try {
+                const testSocket = io(PRIMA789_URL, {
+                    transports: ['polling'],
+                    timeout: 5000,
+                    forceNew: true
+                });
+                
+                const timeout = setTimeout(() => {
+                    testSocket.disconnect();
+                    updatePrimaStatus('offline', 'เชื่อมต่อไม่ได้');
+                }, 5000);
+                
+                testSocket.on('connect', () => {
+                    clearTimeout(timeout);
+                    testSocket.disconnect();
+                    updatePrimaStatus('online', 'เซิร์ฟเวอร์พร้อมใช้งาน');
+                    updateStepIndicator(2);
+                });
+                
+                testSocket.on('connect_error', () => {
+                    clearTimeout(timeout);
+                    updatePrimaStatus('offline', 'เซิร์ฟเวอร์ไม่ตอบสนอง');
+                });
+                
+            } catch (error) {
+                updatePrimaStatus('offline', 'ไม่สามารถเชื่อมต่อได้');
+            }
+        }
+        
+        // Update Prima789 connection status
+        function updatePrimaStatus(status, message) {
+            const statusEl = document.getElementById('prima-status');
+            const textEl = document.getElementById('prima-status-text');
             
             if (statusEl) {
                 statusEl.className = `status-dot status-${status}`;
@@ -274,6 +449,32 @@
             
             if (textEl) {
                 textEl.textContent = message;
+            }
+        }
+        
+        // Update step indicator
+        function updateStepIndicator(currentStep) {
+            for (let i = 1; i <= 3; i++) {
+                const step = document.getElementById(`step-${i}`);
+                const line = document.getElementById(`line-${i}`);
+                
+                if (step) {
+                    if (i < currentStep) {
+                        step.className = 'step completed';
+                    } else if (i === currentStep) {
+                        step.className = 'step active';
+                    } else {
+                        step.className = 'step pending';
+                    }
+                }
+                
+                if (line && i < 3) {
+                    if (i < currentStep) {
+                        line.className = 'step-line completed';
+                    } else {
+                        line.className = 'step-line';
+                    }
+                }
             }
         }
         
@@ -286,17 +487,24 @@
             // Phone input handler
             phoneInput.addEventListener('input', handlePhoneInput);
             
-            // PIN input handler
+            // PIN input handler  
             pinInput.addEventListener('input', handlePinInput);
             
             // Form submit handler
             form.addEventListener('submit', handleFormSubmit);
+            
+            // Update submit button state
+            [phoneInput, pinInput].forEach(input => {
+                input.addEventListener('input', updateSubmitButton);
+                input.addEventListener('blur', updateSubmitButton);
+            });
         }
         
-        // Handle phone input
+        // Handle phone input formatting
         function handlePhoneInput(event) {
             let value = event.target.value.replace(/\D/g, '');
             
+            // Format phone number
             if (value.length > 3 && value.length <= 6) {
                 value = value.replace(/(\d{3})(\d+)/, '$1-$2');
             } else if (value.length > 6) {
@@ -308,67 +516,139 @@
             }
             
             event.target.value = value;
-            
-            // CHANGE: Call updateSubmitButton() directly from the handler
-            updateSubmitButton();
         }
         
         // Handle PIN input
         function handlePinInput(event) {
             const value = event.target.value.replace(/\D/g, '');
             event.target.value = value.substring(0, 4);
-            
-            // CHANGE: Call updateSubmitButton() directly from the handler
-            updateSubmitButton();
         }
         
         // Validate phone number
-        function validatePhone() {
-            const phone = document.getElementById('phone-input').value.replace(/\D/g, '');
-            const feedback = document.getElementById('phone-feedback');
-            
-            const isValid = /^0[689]\d{8}$/.test(phone);
-            
-            if (feedback) {
-                if (isValid) {
-                    feedback.classList.remove('hidden');
-                } else {
-                    feedback.classList.add('hidden');
-                }
-            }
-            
-            // CHANGE: Removed the call to updateSubmitButton() to break the loop
-            return isValid;
+        function validatePhone(phone) {
+            const cleanPhone = phone.replace(/\D/g, '');
+            return /^0[689]\d{8}$/.test(cleanPhone);
         }
         
         // Validate PIN
-        function validatePin() {
-            const pin = document.getElementById('pin-input').value;
-            const feedback = document.getElementById('pin-feedback');
-            
-            const isValid = /^\d{4}$/.test(pin);
-            
-            if (feedback) {
-                if (isValid) {
-                    feedback.classList.remove('hidden');
-                } else {
-                    feedback.classList.add('hidden');
-                }
-            }
-            
-            // CHANGE: Removed the call to updateSubmitButton() to break the loop
-            return isValid;
+        function validatePin(pin) {
+            return /^\d{4}$/.test(pin);
         }
         
         // Update submit button state
         function updateSubmitButton() {
             const submitBtn = document.getElementById('submit-btn');
-            const phoneValid = validatePhone();
-            const pinValid = validatePin();
+            const phone = document.getElementById('phone-input').value;
+            const pin = document.getElementById('pin-input').value;
+            
+            const phoneValid = validatePhone(phone);
+            const pinValid = validatePin(pin);
             
             if (submitBtn) {
                 submitBtn.disabled = !(phoneValid && pinValid) || isConnecting;
             }
+        }
+        
+        // Main Prima789 authentication function
+        function authenticateAndGetData(phone, pin) {
+            return new Promise((resolve, reject) => {
+                showMessage('info', '🔗 เชื่อมต่อกับ Prima789.net...');
+                updatePrimaStatus('connecting', 'กำลังเชื่อมต่อ...');
+                
+                const socket = io(PRIMA789_URL, { 
+                    transports: ['polling'],
+                    forceNew: true 
+                });
+                
+                currentSocket = socket;
+                let fullMemberData = {};
+                let resolved = false;
+                
+                const timeout = setTimeout(() => {
+                    if (!resolved) {
+                        resolved = true;
+                        socket.disconnect();
+                        updatePrimaStatus('offline', 'การเชื่อมต่อหมดเวลา');
+                        reject({ success: false, message: 'การเชื่อมต่อหมดเวลา' });
+                    }
+                }, 20000);
+                
+                socket.on('connect', () => {
+                    showMessage('info', '📡 ส่งข้อมูลการเข้าสู่ระบบ...');
+                    updatePrimaStatus('online', 'ส่งข้อมูลเข้าสู่ระบบ...');
+                    socket.emit('login', { tel: phone, pin: pin });
+                });
+                
+                socket.on('cus return', (res) => {
+                    console.log('Prima789 cus return:', res);
+                    showMessage('info', '📋 ตรวจสอบข้อมูลผู้ใช้...');
+                    
+                    if (res.success) {
+                        fullMemberData.primaUsername = res.data.mm_user;
+                        fullMemberData.firstName = res.data.first_name;
+                        fullMemberData.lastName = res.data.last_name;
+                        fullMemberData.phone = phone;
+                        
+                        showMessage('success', '✅ ยืนยันตัวตนสำเร็จ');
+                        
+                        // Check if we have all data needed
+                        if (fullMemberData.creditBalance !== undefined && !resolved) {
+                            resolved = true;
+                            clearTimeout(timeout);
+                            socket.disconnect();
+                            updatePrimaStatus('online', 'เชื่อมต่อสำเร็จ');
+                            resolve({ success: true, data: fullMemberData });
+                        }
+                    } else {
+                        if (!resolved) {
+                            resolved = true;
+                            clearTimeout(timeout);
+                            socket.disconnect();
+                            updatePrimaStatus('offline', 'ข้อมูลไม่ถูกต้อง');
+                            reject({ success: false, message: 'เบอร์โทรศัพท์หรือรหัส PIN ไม่ถูกต้อง' });
+                        }
+                    }
+                });
+                
+                socket.on('credit_push', (res) => {
+                    console.log('Prima789 credit_push:', res);
+                    showMessage('info', '💰 ดึงข้อมูลยอดเครดิต...');
+                    
+                    if (res.success) {
+                        fullMemberData.creditBalance = parseFloat(res.data.total_credit) || 0;
+                        showMessage('success', `💰 ยอดเครดิต: ${fullMemberData.creditBalance.toLocaleString()} บาท`);
+                    }
+                    
+                    // Check if we have all data needed
+                    if (fullMemberData.primaUsername && !resolved) {
+                        resolved = true;
+                        clearTimeout(timeout);
+                        socket.disconnect();
+                        updatePrimaStatus('online', 'ดึงข้อมูลสำเร็จ');
+                        resolve({ success: true, data: fullMemberData });
+                    }
+                });
+                
+                socket.on('connect_error', (error) => {
+                    console.error('Prima789 connection error:', error);
+                    if (!resolved) {
+                        resolved = true;
+                        clearTimeout(timeout);
+                        updatePrimaStatus('offline', 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้');
+                        reject({ success: false, message: 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ Prima789 ได้' });
+                    }
+                });
+                
+                socket.on('disconnect', (reason) => {
+                    console.log('Prima789 disconnected:', reason);
+                    if (!resolved && reason !== 'io client disconnect') {
+                        resolved = true;
+                        clearTimeout(timeout);
+                        updatePrimaStatus('offline', 'การเชื่อมต่อถูกตัด');
+                        reject({ success: false, message: 'การเชื่อมต่อกับ Prima789 ถูกตัดขาด' });
+                    }
+                });
+            });
         }
         
         // Handle form submission
@@ -380,15 +660,55 @@
             const phone = document.getElementById('phone-input').value.replace(/\D/g, '');
             const pin = document.getElementById('pin-input').value;
             
-            if (!validatePhone() || !validatePin()) {
+            if (!validatePhone(phone) || !validatePin(pin)) {
                 showMessage('error', 'กรุณากรอกข้อมูลให้ถูกต้อง');
                 return;
             }
             
             isConnecting = true;
             showConnectingState();
-            showMessage('info', 'กำลังเชื่อมต่อกับ Prima789...');
+            updateStepIndicator(3);
             
+            try {
+                // Step 1: Authenticate with Prima789
+                showMessage('info', '🎰 เชื่อมต่อกับ Prima789...');
+                const primaResult = await authenticateAndGetData(phone, pin);
+                
+                if (!primaResult.success) {
+                    throw new Error(primaResult.message);
+                }
+                
+                showMessage('success', '✅ การยืนยันตัวตนสำเร็จ');
+                
+                // Step 2: Save to database
+                showMessage('info', '💾 บันทึกข้อมูลลงฐานข้อมูล...');
+                
+                const memberData = primaResult.data;
+                const syncResult = await saveToDatabase({
+                    lineUserId: lineUserId,
+                    primaUsername: memberData.primaUsername,
+                    primaPhone: memberData.phone,
+                    creditBalance: memberData.creditBalance,
+                    firstName: memberData.firstName,
+                    lastName: memberData.lastName
+                });
+                
+                if (syncResult.success) {
+                    showMessage('success', '💾 บันทึกข้อมูลสำเร็จ');
+                    showSuccessView(syncResult.user);
+                } else {
+                    throw new Error(syncResult.message || 'ไม่สามารถบันทึกข้อมูลได้');
+                }
+                
+            } catch (error) {
+                console.error('Integration error:', error);
+                showMessage('error', error.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ');
+                resetFormState();
+            }
+        }
+        
+        // Save data to database via API
+        async function saveToDatabase(userData) {
             try {
                 const response = await fetch(`${API_BASE_URL}/user/sync`, {
                     method: 'POST',
@@ -396,27 +716,50 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        lineUserId: lineUserId,
-                        primaUsername: phone,
-                        primaPhone: phone,
-                        primaPin: pin
+                        lineUserId: userData.lineUserId,
+                        primaUsername: userData.primaUsername,
+                        primaPhone: userData.primaPhone,
+                        primaPin: document.getElementById('pin-input').value // Don't store PIN, just for validation
                     })
                 });
-                
-                const data = await response.json();
+
+                const result = await response.json();
                 
                 if (response.ok) {
-                    showMessage('success', 'เชื่อมต่อบัญชีสำเร็จ!');
-                    showSuccessView(data.user);
+                    return {
+                        success: true,
+                        user: {
+                            username: userData.primaUsername,
+                            phone: userData.primaPhone,
+                            balance: userData.creditBalance,
+                            level: determineMemberTier(userData.creditBalance),
+                            firstName: userData.firstName,
+                            lastName: userData.lastName
+                        }
+                    };
                 } else {
-                    throw new Error(data.error?.message || 'เชื่อมต่อไม่สำเร็จ');
+                    return {
+                        success: false,
+                        message: result.error?.message || 'Database save failed'
+                    };
                 }
                 
             } catch (error) {
-                console.error('Connection error:', error);
-                showMessage('error', error.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ');
-                resetFormState();
+                console.error('Database save error:', error);
+                return {
+                    success: false,
+                    message: 'ไม่สามารถเชื่อมต่อกับฐานข้อมูลได้'
+                };
             }
+        }
+        
+        // Determine member tier based on balance
+        function determineMemberTier(balance) {
+            const numBalance = parseFloat(balance) || 0;
+            if (numBalance >= 100000) return 'PLATINUM';
+            if (numBalance >= 50000) return 'GOLD';
+            if (numBalance >= 10000) return 'SILVER';
+            return 'BRONZE';
         }
         
         // Show connecting state
@@ -426,7 +769,7 @@
             const submitLoading = document.getElementById('submit-loading');
             
             if (submitText) submitText.textContent = 'กำลังเชื่อมต่อ...';
-            if (submitLoading) submitLoading.classList.remove('hidden');
+            if (submitLoading) submitLoading.style.display = 'inline-block';
             if (submitBtn) submitBtn.disabled = true;
         }
         
@@ -437,28 +780,54 @@
             const submitLoading = document.getElementById('submit-loading');
             
             if (submitText) submitText.textContent = 'เชื่อมต่อบัญชี';
-            if (submitLoading) submitLoading.classList.add('hidden');
+            if (submitLoading) submitLoading.style.display = 'none';
             
             isConnecting = false;
             updateSubmitButton();
+            
+            // Disconnect any active socket
+            if (currentSocket) {
+                currentSocket.disconnect();
+                currentSocket = null;
+            }
         }
         
         // Show success view
         function showSuccessView(userData) {
+            // Hide form
             document.getElementById('connection-form').parentElement.classList.add('hidden');
+            document.getElementById('messages').classList.add('hidden');
             
+            // Show success view
             const successView = document.getElementById('success-view');
             successView.classList.remove('hidden');
             
+            // Populate user data
+            document.getElementById('preview-username').textContent = userData.username || 'ไม่ระบุ';
             document.getElementById('preview-phone').textContent = userData.phone || 'ไม่ระบุ';
-            document.getElementById('preview-level').textContent = userData.level || 'STANDARD';
-            document.getElementById('preview-balance').textContent = `฿${(userData.balance || 0).toFixed(2)}`;
+            document.getElementById('preview-level').textContent = userData.level || 'BRONZE';
             
+            // Format balance
+            const balance = parseFloat(userData.balance) || 0;
+            document.getElementById('preview-balance').textContent = `฿${balance.toLocaleString('th-TH', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            })}`;
+            
+            // Update step indicator to completed
+            updateStepIndicator(4);
+            
+            // Setup back button
             document.getElementById('back-btn').addEventListener('click', () => {
+                // Notify parent window about successful sync
                 if (window.opener) {
-                    window.opener.postMessage({ type: 'PRIMA_SYNC_SUCCESS' }, '*');
+                    window.opener.postMessage({ 
+                        type: 'PRIMA_SYNC_SUCCESS',
+                        userData: userData
+                    }, '*');
                     setTimeout(() => window.close(), 500);
                 } else {
+                    // Redirect to main card
                     window.location.href = '/prima789-liff-member-card.html';
                 }
             });
@@ -482,13 +851,20 @@
             
             container.appendChild(messageEl);
             
-            setTimeout(() => {
-                if (messageEl.parentNode) {
-                    messageEl.remove();
-                }
-            }, 8000);
+            // Auto remove after 10 seconds (except errors)
+            if (type !== 'error') {
+                setTimeout(() => {
+                    if (messageEl.parentNode) {
+                        messageEl.remove();
+                    }
+                }, 10000);
+            }
+            
+            // Scroll to show message
+            messageEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
         
+        // Get message styling classes
         function getMessageClasses(type) {
             const classes = {
                 'success': 'bg-green-900 bg-opacity-20 border border-green-500 border-opacity-30 text-green-300',
@@ -499,6 +875,7 @@
             return classes[type] || classes['info'];
         }
         
+        // Get message icon
         function getMessageIcon(type) {
             const icons = {
                 'success': '✅',
@@ -509,10 +886,16 @@
             return icons[type] || icons['info'];
         }
         
+        // Initialize on page load
         document.addEventListener('DOMContentLoaded', init);
         
+        // Cleanup on page unload
         window.addEventListener('beforeunload', () => {
             isConnecting = false;
+            if (currentSocket) {
+                currentSocket.disconnect();
+                currentSocket = null;
+            }
         });
     </script>
 </body>
