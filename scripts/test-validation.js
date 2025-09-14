@@ -1,148 +1,180 @@
-// scripts/test-validation.js - Pure validation functions test (no dependencies)
+// scripts/test-validation.js - แก้ไข Test Script
+const fs = require("fs");
+const path = require("path");
 
-console.log("🧪 Testing validation functions...\n");
+console.log("🧪 Testing validation functions...");
 
 try {
-  // Test importing the validation functions only (no other dependencies)
+  // Import validation functions
   const {
-    validatePhoneNumber,
-    validatePIN,
+    isValidPhoneNumber,
+    isValidPIN,
     validatePhoneNumberOrThrow,
     validatePINOrThrow,
     ValidationError,
-  } = require("../utils/errors");
+  } = require("../utils/validation");
 
   console.log("✅ Successfully imported validation functions");
 
-  // Test 1: Valid phone number validation
+  // Test phone number validation
   console.log("\n📱 Testing phone number validation:");
 
   const validPhones = ["0812345678", "0651234567", "0934567890"];
   const invalidPhones = ["123", "0512345678", "abc123", ""];
 
-  // Test boolean validation - valid phones
   validPhones.forEach((phone) => {
-    if (!validatePhoneNumber(phone)) {
-      throw new Error(`Valid phone ${phone} was rejected`);
+    const result = isValidPhoneNumber(phone);
+    console.log(
+      `${result ? "✅" : "❌"} ${phone} - ${result ? "Valid" : "Invalid"}`
+    );
+    if (!result) {
+      throw new Error(`Phone ${phone} should be valid but was rejected`);
     }
-    console.log(`✅ ${phone} - Valid`);
   });
 
-  // Test boolean validation - invalid phones
   invalidPhones.forEach((phone) => {
-    if (validatePhoneNumber(phone)) {
-      throw new Error(`Invalid phone ${phone} was accepted`);
+    const result = isValidPhoneNumber(phone);
+    console.log(
+      `${!result ? "✅" : "❌"} ${phone || "empty"} - ${
+        result ? "Valid" : "Invalid"
+      } ${!result ? "(correctly rejected)" : "(incorrectly accepted)"}`
+    );
+    if (result) {
+      throw new Error(`Phone ${phone} should be invalid but was accepted`);
     }
-    console.log(`❌ ${phone || "empty"} - Invalid (correctly rejected)`);
   });
 
-  // Test 2: PIN validation
+  // Test PIN validation
   console.log("\n🔐 Testing PIN validation:");
 
-  const validPINs = ["1234", "0000", "9999", "0001"];
-  const invalidPINs = ["123", "12345", "abc1", "", "99999", "ab12", "12a3"];
+  const validPins = ["1234", "0000", "9999", "0001"];
+  const invalidPins = ["123", "12345", "abc1", "", "99999", "ab12", "12a3"];
 
-  // Test valid PINs
-  validPINs.forEach((pin) => {
-    if (!validatePIN(pin)) {
-      throw new Error(`Valid PIN ${pin} was rejected`);
+  validPins.forEach((pin) => {
+    const result = isValidPIN(pin);
+    console.log(
+      `${result ? "✅" : "❌"} ${pin} - ${result ? "Valid" : "Invalid"}`
+    );
+    if (!result) {
+      throw new Error(`PIN ${pin} should be valid but was rejected`);
     }
-    console.log(`✅ ${pin} - Valid`);
   });
 
-  // Test invalid PINs
-  invalidPINs.forEach((pin) => {
-    if (validatePIN(pin)) {
-      throw new Error(`Invalid PIN ${pin} was accepted`);
+  invalidPins.forEach((pin) => {
+    const result = isValidPIN(pin);
+    console.log(
+      `${!result ? "✅" : "❌"} ${pin || "empty"} - ${
+        result ? "Valid" : "Invalid"
+      } ${!result ? "(correctly rejected)" : "(incorrectly accepted)"}`
+    );
+    if (result) {
+      throw new Error(`PIN ${pin} should be invalid but was accepted`);
     }
-    console.log(`❌ ${pin || "empty"} - Invalid (correctly rejected)`);
   });
 
-  // Test 3: Throwing validation functions
+  // Test throwing validation functions
   console.log("\n🚫 Testing throwing validation functions:");
 
-  // Test valid cases (should not throw)
+  // Test valid inputs don't throw
   try {
     validatePhoneNumberOrThrow("0812345678");
     console.log("✅ validatePhoneNumberOrThrow - Valid phone accepted");
   } catch (error) {
-    throw new Error("Valid phone number caused exception: " + error.message);
+    throw new Error(
+      "Valid phone number caused unexpected error: " + error.message
+    );
   }
 
   try {
     validatePINOrThrow("1234");
     console.log("✅ validatePINOrThrow - Valid PIN accepted");
   } catch (error) {
-    throw new Error("Valid PIN caused exception: " + error.message);
+    throw new Error("Valid PIN caused unexpected error: " + error.message);
   }
 
-  // Test invalid cases (should throw ValidationError)
+  // Test invalid inputs do throw
   try {
-    validatePhoneNumberOrThrow("invalid");
-    throw new Error("Invalid phone number should have thrown error");
+    validatePhoneNumberOrThrow("123");
+    throw new Error("Invalid phone should have thrown error");
   } catch (error) {
-    if (!(error instanceof ValidationError)) {
-      throw new Error(
-        "Wrong error type for invalid phone: " + error.constructor.name
-      );
+    if (error.message.includes("Invalid phone number format")) {
+      console.log("✅ validatePhoneNumberOrThrow - Invalid phone rejected");
+    } else {
+      throw error;
     }
-    console.log("✅ validatePhoneNumberOrThrow - Invalid phone rejected");
   }
 
   try {
     validatePINOrThrow("abc");
     throw new Error("Invalid PIN should have thrown error");
   } catch (error) {
-    if (!(error instanceof ValidationError)) {
-      throw new Error(
-        "Wrong error type for invalid PIN: " + error.constructor.name
-      );
+    if (error.message.includes("Invalid PIN format")) {
+      console.log("✅ validatePINOrThrow - Invalid PIN rejected");
+    } else {
+      throw error;
     }
-    console.log("✅ validatePINOrThrow - Invalid PIN rejected");
   }
 
-  // Test 4: Code structure validation (no actual module loading)
+  // Test static code analysis of API files
   console.log("\n🔗 Testing API file imports (static analysis):");
 
   try {
-    // Read API file and check import statements
-    const fs = require("fs");
-    const apiCode = fs.readFileSync("netlify/functions/api.js", "utf8");
-
-    // Check if our functions are properly imported
-    const hasValidatePhoneImport = apiCode.includes(
-      "validatePhoneNumberOrThrow"
+    const apiFilePath = path.join(
+      __dirname,
+      "..",
+      "netlify",
+      "functions",
+      "api.js"
     );
-    const hasValidatePINImport = apiCode.includes("validatePINOrThrow");
-    const hasCorrectImport = apiCode.includes('require("../../utils/errors")');
 
-    if (hasValidatePhoneImport && hasValidatePINImport && hasCorrectImport) {
-      console.log("✅ Validation function imports found in API code");
-      console.log("✅ Import statement structure is correct");
-    } else {
+    if (!fs.existsSync(apiFilePath)) {
+      throw new Error("API file not found at: " + apiFilePath);
+    }
+
+    const apiContent = fs.readFileSync(apiFilePath, "utf8");
+
+    // Check for required imports
+    const requiredImports = [
+      "validatePhoneNumberOrThrow",
+      "validatePINOrThrow",
+      "ValidationError",
+    ];
+
+    const missingImports = requiredImports.filter(
+      (imp) => !apiContent.includes(imp)
+    );
+
+    if (missingImports.length > 0) {
       throw new Error(
-        "Missing or incorrect validation function imports in API code"
+        `Missing imports in API file: ${missingImports.join(", ")}`
       );
     }
 
-    console.log("✅ Static code analysis passed");
+    // Check for require statement
+    if (
+      !apiContent.includes("require('../../utils/validation')") &&
+      !apiContent.includes('require("../../utils/validation")')
+    ) {
+      throw new Error(
+        "Missing validation module require statement in API file"
+      );
+    }
+
+    console.log("✅ API file validation imports look correct");
   } catch (error) {
-    console.error("❌ Failed static code analysis:", error.message);
-    throw error;
+    console.log("❌ Failed static code analysis:", error.message);
+    throw new Error(
+      "Missing or incorrect validation function imports in API code"
+    );
   }
 
   console.log("\n🎉 All validation tests passed!");
-  console.log("\n✅ Validated functions:");
-  console.log("  - validatePhoneNumber()");
-  console.log("  - validatePIN()");
-  console.log("  - validatePhoneNumberOrThrow()");
-  console.log("  - validatePINOrThrow()");
-  console.log("  - ValidationError class");
-  console.log("  - API import structure");
-
-  console.log("\n🚀 Validation functions are ready for production!");
 } catch (error) {
-  console.error("\n💥 Validation test failed:", error.message);
-  console.error("Stack:", error.stack);
+  console.error("💥 Validation test failed:", error.message);
+  if (error.stack) {
+    console.error("Stack:", error.stack);
+  }
   process.exit(1);
 }
+
+console.log("\n✅ Validation testing completed successfully!");
