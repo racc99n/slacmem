@@ -360,7 +360,7 @@
     <script>
         // Configuration
         const API_BASE_URL = '/.netlify/functions/api';
-        const PRIMA789_URL = 'https://prima789.net';
+        // const PRIMA789_URL = 'https://prima789.net';
         
         // Global variables
         let lineUserId = null;
@@ -410,7 +410,8 @@
             updatePrimaStatus('connecting', 'กำลังทดสอบการเชื่อมต่อ...');
             
             try {
-                const testSocket = io(PRIMA789_URL, {
+                const testSocket = io({
+                    path: "/socket.io/", // ระบุ path
                     transports: ['polling'],
                     timeout: 5000,
                     forceNew: true
@@ -555,9 +556,10 @@
                 showMessage('info', '🔗 เชื่อมต่อกับ Prima789.net...');
                 updatePrimaStatus('connecting', 'กำลังเชื่อมต่อ...');
                 
-                const socket = io(PRIMA789_URL, { 
+                const socket = io({
+                    path: "/socket.io/", // ระบุ path
                     transports: ['polling'],
-                    forceNew: true 
+                    forceNew: true
                 });
                 
                 currentSocket = socket;
