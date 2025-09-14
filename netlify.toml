@@ -9,17 +9,29 @@
   to = "/.netlify/functions/api/:splat"
   status = 200
 
+# HTML file redirects
+[[redirects]]
+  from = "/prima789-liff-member-card"
+  to = "/prima789-liff-member-card.html"
+  status = 200
+
+[[redirects]]
+  from = "/prima789-integration"
+  to = "/prima789-integration.html"
+  status = 200
+
 # Headers for HTML files
 [[headers]]
   for = "/*.html"
   [headers.values]
     X-Frame-Options = "ALLOWALL"
     Access-Control-Allow-Origin = "*"
+    Content-Security-Policy = "default-src 'self' https:; script-src 'self' 'unsafe-inline' https://static.line-scdn.net https://d.line-scdn.net https://cdn.tailwindcss.com; connect-src 'self' https://api.line.me https://access.line.me https://liffsdk.line-scdn.net https://*.netlify.app; img-src 'self' data: https: blob:; style-src 'self' 'unsafe-inline' https:; frame-ancestors https://liff.line.me;"
 
 # Headers for Functions
 [[headers]]
   for = "/.netlify/functions/*"
   [headers.values]
-    Access-Control-Allow-Origin = "https://slaczcardmem.netlify.app, https://liff.line.me"
+    Access-Control-Allow-Origin = "*"
     Access-Control-Allow-Headers = "Content-Type, Authorization, X-LINE-User-ID"
     Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"

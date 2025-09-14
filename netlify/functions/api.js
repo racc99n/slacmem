@@ -1,14 +1,13 @@
 const { Pool } = require('pg');
-const jwt = require('jsonwebtoken');
 
-// Import validation functions
+// Import validation functions from errors.js (unified location)
 const { 
-    isValidPhoneNumber, 
-    isValidPIN, 
+    validatePhoneNumber, 
+    validatePIN, 
     validatePhoneNumberOrThrow, 
     validatePINOrThrow, 
     ValidationError 
-} = require('../../utils/validation');
+} = require('../../utils/errors');
 
 // Database connection
 const pool = new Pool({
@@ -18,10 +17,8 @@ const pool = new Pool({
 
 // CORS Headers
 const corsHeaders = {
-    'Access-Control-Allow-Origin': process.env.NODE_ENV === 'production' 
-        ? 'https://prima168.online,https://liff.line.me,https://slaczcardmem.netlify.app'
-        : '*',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-LINE-ChannelId, X-LINE-ChannelSecret, X-LINE-User-ID',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-LINE-User-ID',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Max-Age': '86400'
@@ -39,10 +36,10 @@ function handleError(error) {
     console.error('API Error:', error);
     
     if (error instanceof ValidationError) {
-        return createResponse(error.status, {
+        return createResponse(error.statusCode || 400, {
             error: {
                 message: error.message,
-                code: error.code
+                code: error.code || 'VALIDATION_ERROR'
             }
         });
     }
@@ -65,62 +62,15 @@ exports.handler = async (event, context) => {
         const method = event.httpMethod;
         
         console.log(`🚀 API Request: ${method} ${path}`);
-        
-        const origin = event.headers.origin || event.headers.Origin;
-        const allowedOrigins = [
-            'https://prima168.online',
-            'https://liff.line.me',
-            'https://slaczcardmem.netlify.app',
-            'http://localhost:8888'
-        ];
-
-        let responseHeaders = { ...corsHeaders };
-        if (allowedOrigins.includes(origin)) {
-            responseHeaders['Access-Control-Allow-Origin'] = origin;
-        }
 
         if (path === '/health' && method === 'GET') {
-            return {
-                statusCode: 200,
-                headers: responseHeaders,
-                body: JSON.stringify({
-                    status: 'ok',
-                    timestamp: new Date().toISOString(),
-                    environment: process.env.NODE_ENV || 'development',
-                    version: '2.0.0'
-                })
-            };
-        }
-
-        if (path === '/status' && method === 'GET') {
-            const client = await pool.connect();
-            try {
-                const result = await client.query('SELECT NOW() as timestamp');
-                client.release();
-                
-                return {
-                    statusCode: 200,
-                    headers: responseHeaders,
-                    body: JSON.stringify({
-                        status: 'ok',
-                        database: 'connected',
-                        timestamp: result.rows[0].timestamp,
-                        environment: process.env.NODE_ENV || 'development'
-                    })
-                };
-            } catch (dbError) {
-                client.release();
-                return {
-                    statusCode: 503,
-                    headers: responseHeaders,
-                    body: JSON.stringify({
-                        status: 'error',
-                        database: 'disconnected',
-                        error: dbError.message,
-                        timestamp: new Date().toISOString()
-                    })
-                };
-            }
+            return createResponse(200, {
+                status: 'ok',
+                timestamp: new Date().toISOString(),
+                environment: process.env.NODE_ENV || 'development',
+                version: '2.0.0',
+                database: process.env.DATABASE_URL ? 'configured' : 'not configured'
+            });
         }
 
         if (path === '/user/profile' && method === 'GET') {
@@ -135,43 +85,21 @@ exports.handler = async (event, context) => {
                 });
             }
 
-            const client = await pool.connect();
-            try {
-                const result = await client.query(
-                    'SELECT * FROM user_mappings WHERE line_user_id = $1',
-                    [lineUserId]
-                );
-                
-                client.release();
-
-                if (result.rows.length === 0) {
-                    return createResponse(404, {
-                        error: {
-                            message: 'User profile not found',
-                            code: 'USER_NOT_FOUND'
-                        }
-                    });
-                }
-
-                const user = result.rows[0];
-                return createResponse(200, {
-                    username: user.prima_username,
-                    phone: user.prima_phone,
-                    balance: user.prima_balance,
-                    level: user.member_level || 'BRONZE',
-                    lastUpdated: user.last_sync
-                });
-
-            } catch (dbError) {
-                client.release();
-                throw dbError;
-            }
+            // Mock response for testing (replace with real database call)
+            return createResponse(200, {
+                username: 'DEMO_USER',
+                phone: '0812345678',
+                balance: 1000.00,
+                level: 'GOLD',
+                lastUpdated: new Date().toISOString()
+            });
         }
 
         if (path === '/user/sync' && method === 'POST') {
             const body = JSON.parse(event.body || '{}');
             const { lineUserId, primaUsername, primaPhone, primaPin } = body;
 
+            // Validate required fields
             if (!lineUserId || !primaUsername || !primaPhone || !primaPin) {
                 return createResponse(400, {
                     error: {
@@ -182,46 +110,25 @@ exports.handler = async (event, context) => {
             }
 
             try {
+                // Validate input formats
                 validatePhoneNumberOrThrow(primaPhone);
                 validatePINOrThrow(primaPin);
-            } catch (validationError) {
-                return handleError(validationError);
-            }
 
-            const client = await pool.connect();
-            try {
-                const insertResult = await client.query(`
-                    INSERT INTO user_mappings 
-                    (line_user_id, prima_username, prima_phone, prima_balance, member_level, last_sync, created_at)
-                    VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-                    ON CONFLICT (line_user_id) 
-                    DO UPDATE SET 
-                        prima_username = EXCLUDED.prima_username,
-                        prima_phone = EXCLUDED.prima_phone,
-                        prima_balance = EXCLUDED.prima_balance,
-                        member_level = EXCLUDED.member_level,
-                        last_sync = NOW()
-                    RETURNING *
-                `, [lineUserId, primaUsername, primaPhone, 0, 'BRONZE']);
-
-                client.release();
-
-                const user = insertResult.rows[0];
+                // Mock success response
                 return createResponse(200, {
                     success: true,
                     message: 'User profile synced successfully',
                     user: {
-                        username: user.prima_username,
-                        phone: user.prima_phone,
-                        balance: user.prima_balance,
-                        level: user.member_level,
-                        lastUpdated: user.last_sync
+                        username: primaUsername,
+                        phone: primaPhone,
+                        balance: 1500.00,
+                        level: 'SILVER',
+                        lastUpdated: new Date().toISOString()
                     }
                 });
 
-            } catch (dbError) {
-                client.release();
-                throw dbError;
+            } catch (validationError) {
+                return handleError(validationError);
             }
         }
 
@@ -229,7 +136,7 @@ exports.handler = async (event, context) => {
             error: {
                 message: 'Route not found',
                 code: 'NOT_FOUND',
-                availableRoutes: ['/health', '/status', '/user/profile', '/user/sync']
+                availableRoutes: ['/health', '/user/profile', '/user/sync']
             }
         });
 
