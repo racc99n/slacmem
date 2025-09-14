@@ -1,12 +1,56 @@
-# netlify.toml - Production-ready Netlify configuration
-
+# netlify.toml - Production Configuration
 [build]
-  functions = "netlify/functions"
-  publish = "public"
   command = "npm run build"
+  functions = "netlify/functions"
+  publish = "."
 
-# API redirects
+[build.environment]
+  NODE_ENV = "production"
+
+# Headers สำหรับ CORS และ Security
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), location=()"
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+    Content-Security-Policy = '''
+      default-src 'self' https:;
+      script-src 'self' 'unsafe-inline' https://static.line-scdn.net https://d.line-scdn.net https://cdn.tailwindcss.com https://cdnjs.cloudflare.com;
+      connect-src 'self' https://api.line.me https://access.line.me https://liffsdk.line-scdn.net https://prima168.online;
+      img-src 'self' data: https: blob:;
+      style-src 'self' 'unsafe-inline' https:;
+      font-src 'self' https: data:;
+    '''
+
+# CORS สำหรับ API Functions
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "https://prima168.online, https://liff.line.me"
+    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With, X-LINE-ChannelId, X-LINE-ChannelSecret"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Credentials = "true"
+    Access-Control-Max-Age = "86400"
+
+# Redirects สำหรับ SPA
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"
   status = 200
+
+# Environment Variables (ให้กำหนดใน Netlify Dashboard)
+# DATABASE_URL
+# LIFF_ID
+# LINE_BOT_CHANNEL_ACCESS_TOKEN
+# LINE_CHANNEL_SECRET
+# JWT_SECRET
+# PRIMA789_API_URL
+# NODE_ENV = "production"
