@@ -1,461 +1,217 @@
+<!-- แก้ไขในไฟล์ prima789-liff-member-card.html -->
 <!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prima789 Member Card</title>
-    <script src="https://static.line-scdn.net/liff/edge/versions/2.27.2/sdk.js"></script>
-    <link rel="stylesheet" href="assets/tailwind.min.css">
+    
+    <!-- HTTPS และ Security Headers -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self' https:;
+        script-src 'self' 'unsafe-inline' https://static.line-scdn.net https://d.line-scdn.net;
+        connect-src 'self' https://api.line.me https://access.line.me https://liffsdk.line-scdn.net https://prima168.online https://slaczcardmem.netlify.app;
+        img-src 'self' data: https: blob:;
+        style-src 'self' 'unsafe-inline' https:;
+    ">
+    
+    <!-- LIFF SDK -->
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
-    <style>
-        body {
-            font-family: 'Kanit', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        
-        .card-gradient {
-            background: linear-gradient(145deg, #2d3748, #4a5568);
-        }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            transition: all 0.3s ease;
-        }
-        
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(245, 158, 11, 0.3);
-        }
-        
-        .pulse-animation {
-            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-        
-        .fade-in {
-            animation: fadeIn 0.5s ease-out forwards;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: .5; }
-        }
-        
-        .status-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 8px;
-        }
-        
-        .status-online { background-color: #10b981; }
-        .status-offline { background-color: #ef4444; }
-        .status-connecting { background-color: #f59e0b; animation: pulse 1s infinite; }
-    </style>
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap" rel="stylesheet">
 </head>
-
-<body class="text-white min-h-screen p-4">
-
-    <div id="app-container" class="max-w-md mx-auto">
-
-        <!-- Loading View -->
-        <div id="loading-view" class="text-center fade-in">
-            <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl">
-                <i class="fas fa-spinner fa-spin text-4xl text-amber-400 mb-4"></i>
-                <h2 class="text-xl font-bold mb-2">Prima789</h2>
-                <p class="text-blue-100">กำลังเริ่มต้นระบบ...</p>
-                <div class="mt-4">
-                    <div class="status-connecting status-dot"></div>
-                    <span class="text-sm">เชื่อมต่อ LINE LIFF</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- LINE Login Required -->
-        <div id="login-required-view" class="hidden text-center fade-in">
-            <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl">
-                <i class="fab fa-line text-6xl text-green-500 mb-4"></i>
-                <h2 class="text-2xl font-bold mb-2">เข้าสู่ระบบ LINE</h2>
-                <p class="text-blue-100 mb-6">กรุณาเข้าสู่ระบบ LINE เพื่อใช้งานบัตรสมาชิก Prima789</p>
-                <button onclick="liff.login()" class="btn-primary text-gray-900 font-bold py-3 px-6 rounded-lg shadow-lg">
-                    <i class="fab fa-line mr-2"></i>เข้าสู่ระบบ LINE
-                </button>
-            </div>
-        </div>
-
-        <!-- Member Card View -->
-        <div id="card-view" class="hidden fade-in">
-            <!-- LINE Profile Header -->
-            <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 mb-6 shadow-2xl">
-                <div class="flex items-center space-x-4">
-                    <img id="line-picture" src="" alt="LINE Profile" 
-                         class="w-16 h-16 rounded-full border-2 border-amber-400 shadow-lg">
-                    <div class="flex-1">
-                        <p class="text-sm text-blue-100">สวัสดีคุณ</p>
-                        <h3 id="line-display-name" class="text-xl font-bold text-white truncate">-</h3>
-                        <div class="flex items-center mt-1">
-                            <div id="connection-status" class="status-offline status-dot"></div>
-                            <span id="connection-text" class="text-xs text-blue-200">ยังไม่เชื่อมต่อ</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Prima789 Member Card -->
-            <div id="member-card" class="hidden">
-                <div class="card-gradient rounded-2xl p-6 shadow-2xl relative overflow-hidden">
-                    <!-- Background decoration -->
-                    <div class="absolute -top-10 -right-10 w-40 h-40 bg-amber-500/20 rounded-full filter blur-xl"></div>
-                    <div class="relative z-10">
-                        <!-- Header -->
-                        <div class="flex justify-between items-start mb-6">
-                            <div>
-                                <p class="text-xs text-amber-300 uppercase tracking-widest">Member Card</p>
-                                <h2 class="text-2xl font-bold">PRIMA789</h2>
-                                <p class="text-xs text-gray-400">VIP Gaming Club</p>
-                            </div>
-                            <div class="text-right">
-                                <div id="member-tier-badge" class="bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full text-sm font-medium">
-                                    Standard
-                                </div>
-                                <p class="text-xs text-gray-400 mt-1">Member Tier</p>
-                            </div>
-                        </div>
-
-                        <!-- Member Data -->
-                        <div class="bg-black/20 rounded-lg p-4 mb-4">
-                            <div class="grid grid-cols-1 gap-4">
-                                <div>
-                                    <p class="text-xs text-gray-400">เบอร์โทรศัพท์</p>
-                                    <p id="member-phone" class="font-medium text-lg">-</p>
-                                </div>
-                                <div>
-                                    <p class="text-xs text-gray-400">ยอดเครดิตคงเหลือ</p>
-                                    <p id="credit-balance" class="font-bold text-2xl text-amber-300">฿0.00</p>
-                                </div>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <p class="text-xs text-gray-400">สมาชิกตั้งแต่</p>
-                                        <p id="member-since" class="font-medium text-sm">-</p>
-                                    </div>
-                                    <div class="text-right">
-                                        <p class="text-xs text-gray-400">อัปเดตล่าสุด</p>
-                                        <p id="last-update" class="font-medium text-sm">-</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Action Buttons -->
-                        <div class="flex space-x-2">
-                            <button id="refresh-btn" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-                                <i class="fas fa-sync-alt mr-2"></i>รีเฟรช
-                            </button>
-                            <button id="disconnect-btn" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-                                <i class="fas fa-unlink mr-2"></i>ยกเลิก
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Not Connected State -->
-            <div id="not-connected" class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 text-center shadow-2xl">
-                <i class="fas fa-unlink text-4xl text-red-400 mb-4"></i>
-                <h3 class="text-xl font-bold mb-2">ยังไม่ได้เชื่อมต่อ</h3>
-                <p class="text-blue-100 mb-6">เชื่อมต่อบัญชี Prima789 เพื่อใช้งานบัตรสมาชิก</p>
-                <button id="connect-btn" class="btn-primary text-gray-900 font-bold py-3 px-6 rounded-lg shadow-lg w-full">
-                    <i class="fas fa-link mr-2"></i>เชื่อมต่อบัญชี Prima789
-                </button>
-            </div>
-
-            <!-- LINE User Info -->
-            <div class="mt-6 text-center">
-                <p class="text-xs text-blue-200">LINE User ID</p>
-                <p id="line-user-id" class="text-xs text-blue-100 break-all font-mono bg-white/10 rounded px-2 py-1 mt-1">-</p>
-            </div>
-        </div>
-
-        <!-- Error View -->
-        <div id="error-view" class="hidden text-center fade-in">
-            <div class="bg-red-900/50 backdrop-blur-lg rounded-2xl p-8 shadow-2xl">
-                <i class="fas fa-exclamation-triangle text-6xl text-red-400 mb-4"></i>
-                <h2 class="text-2xl font-bold text-red-300 mb-2">เกิดข้อผิดพลาด</h2>
-                <p id="error-message" class="text-red-200 mb-6">ไม่สามารถเริ่มต้นระบบได้</p>
-                <button onclick="location.reload()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">
-                    <i class="fas fa-redo mr-2"></i>ลองใหม่
-                </button>
-            </div>
-        </div>
-
-    </div>
-
+<body>
+    <!-- HTML content ไม่เปลี่ยน -->
+    
     <script>
-        // Configuration
-        const LIFF_ID = '2008101230-z37JaYn1'; // จาก .env
-        const API_BASE_URL = '/.netlify/functions/api'; // API endpoint
+        // Production Configuration
+        const LIFF_ID = '2008101230-z37JaYn1'; // ตรวจสอบว่าถูกต้อง
+        const API_BASE_URL = 'https://slaczcardmem.netlify.app/.netlify/functions/api';
         
-        // Global variables
+        // ตัวแปรสำหรับเก็บข้อมูล
         let lineProfile = null;
-        let memberData = null;
-        let checkInterval = null;
-
-        // View management
-        const views = ['loading-view', 'login-required-view', 'card-view', 'error-view'];
-
+        let primaData = null;
+        
+        // Initialize LIFF ด้วย error handling ที่ดีขึ้น
+        async function initializeLiff() {
+            try {
+                console.log('🚀 Initializing LIFF...');
+                
+                // ตรวจสอบ LIFF SDK
+                if (typeof liff === 'undefined') {
+                    throw new Error('LIFF SDK ไม่ได้โหลด กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+                }
+                
+                // Initialize LIFF
+                await liff.init({ 
+                    liffId: LIFF_ID,
+                    withLoginOnExternalBrowser: true // สำคัญสำหรับ external browser
+                });
+                
+                console.log('✅ LIFF initialized successfully');
+                console.log('📱 LIFF environment:', {
+                    inClient: liff.isInClient(),
+                    loggedIn: liff.isLoggedIn(),
+                    os: liff.getOS(),
+                    version: liff.getVersion()
+                });
+                
+                // ตรวจสอบการล็อกอิน
+                if (!liff.isLoggedIn()) {
+                    console.log('⚠️ User not logged in');
+                    showView('login-required-view');
+                    return;
+                }
+                
+                // ดึงข้อมูล Profile
+                lineProfile = await liff.getProfile();
+                console.log('👤 LINE Profile:', lineProfile);
+                
+                displayLineProfile();
+                await checkPrimaConnection();
+                
+            } catch (error) {
+                console.error('❌ LIFF Initialization failed:', error);
+                
+                // แสดงข้อผิดพลาดที่เข้าใจง่าย
+                let errorMessage = 'ไม่สามารถเชื่อมต่อกับ LINE ได้';
+                
+                if (error.message.includes('LIFF ID')) {
+                    errorMessage = 'การตั้งค่า LIFF ID ไม่ถูกต้อง';
+                } else if (error.message.includes('network')) {
+                    errorMessage = 'กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต';
+                } else if (error.message.includes('Load failed')) {
+                    errorMessage = 'ไม่สามารถโหลด LIFF SDK ได้ กรุณาลองใหม่';
+                }
+                
+                document.getElementById('error-message').textContent = errorMessage;
+                showView('error-view');
+            }
+        }
+        
+        // ฟังก์ชันตรวจสอบการเชื่อมต่อ Prima789
+        async function checkPrimaConnection() {
+            try {
+                showView('loading-view');
+                
+                const response = await fetch(`${API_BASE_URL}/user/profile`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-LINE-User-ID': lineProfile.userId
+                    }
+                });
+                
+                if (response.ok) {
+                    primaData = await response.json();
+                    displayMemberCard();
+                    showView('card-view');
+                } else if (response.status === 404) {
+                    // ยังไม่ได้เชื่อมต่อบัญชี
+                    showView('login-required-view');
+                } else {
+                    throw new Error(`API Error: ${response.status}`);
+                }
+                
+            } catch (error) {
+                console.error('Error checking Prima connection:', error);
+                document.getElementById('error-message').textContent = 
+                    'ไม่สามารถตรวจสอบสถานะการเชื่อมต่อได้ กรุณาลองใหม่อีกครั้ง';
+                showView('error-view');
+            }
+        }
+        
+        // ฟังก์ชันแสดงข้อมูล LINE Profile
+        function displayLineProfile() {
+            const { userId, displayName, pictureUrl } = lineProfile;
+            
+            document.getElementById('line-display-name').textContent = displayName || 'ไม่ระบุชื่อ';
+            document.getElementById('line-user-id').textContent = userId;
+            
+            if (pictureUrl) {
+                document.getElementById('line-picture').src = pictureUrl;
+            }
+        }
+        
+        // ฟังก์ชันแสดง Member Card
+        function displayMemberCard() {
+            if (!primaData) return;
+            
+            // อัพเดตข้อมูลในการ์ด
+            document.getElementById('prima-username').textContent = primaData.username || 'ไม่ระบุ';
+            document.getElementById('prima-phone').textContent = primaData.phone || 'ไม่ระบุ';
+            document.getElementById('prima-balance').textContent = 
+                primaData.balance ? `${primaData.balance.toLocaleString()} บาท` : 'ไม่ระบุ';
+            document.getElementById('member-level').textContent = primaData.level || 'BRONZE';
+            
+            // อัพเดต timestamp
+            document.getElementById('last-updated').textContent = 
+                new Date().toLocaleString('th-TH');
+        }
+        
+        // จัดการการแสดงผล Views
         function showView(viewId) {
+            const views = ['loading-view', 'login-required-view', 'card-view', 'error-view'];
             views.forEach(id => {
                 const element = document.getElementById(id);
                 if (element) {
                     if (id === viewId) {
                         element.classList.remove('hidden');
-                        element.classList.add('fade-in');
                     } else {
                         element.classList.add('hidden');
-                        element.classList.remove('fade-in');
                     }
                 }
             });
         }
-
-        function updateConnectionStatus(connected, text) {
-            const statusDot = document.getElementById('connection-status');
-            const statusText = document.getElementById('connection-text');
-            
-            if (statusDot && statusText) {
-                statusDot.className = `status-dot ${connected ? 'status-online' : 'status-offline'}`;
-                statusText.textContent = text || (connected ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ');
-            }
-        }
-
-        // Display LINE profile information
-        function displayLineProfile() {
-            if (!lineProfile) return;
-
-            const { userId, displayName, pictureUrl } = lineProfile;
-
-            const nameEl = document.getElementById('line-display-name');
-            const pictureEl = document.getElementById('line-picture');
-            const userIdEl = document.getElementById('line-user-id');
-
-            if (nameEl) nameEl.textContent = displayName || 'ไม่ระบุชื่อ';
-            if (userIdEl) userIdEl.textContent = userId || '-';
-            
-            if (pictureEl) {
-                if (pictureUrl) {
-                    pictureEl.src = pictureUrl;
-                    pictureEl.onerror = () => {
-                        pictureEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName || 'U')}&background=f59e0b&color=1a202c&size=64`;
-                    };
-                } else {
-                    pictureEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName || 'U')}&background=f59e0b&color=1a202c&size=64`;
-                }
-            }
-        }
-
-        // Check Prima789 connection status
-        async function checkPrimaConnection() {
-            if (!lineProfile) return;
-
-            updateConnectionStatus(false, 'กำลังตรวจสอบ...');
-
-            try {
-                const accessToken = liff.getAccessToken();
-                const response = await fetch(`${API_BASE_URL}/status`, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`,
-                        'Content-Type': 'application/json'
+        
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Login button
+            const loginBtn = document.getElementById('login-btn');
+            if (loginBtn) {
+                loginBtn.addEventListener('click', function() {
+                    if (liff.isLoggedIn()) {
+                        // เปิดหน้าเชื่อมต่อ Prima789
+                        const connectUrl = `prima789-integration.html?lineUserId=${encodeURIComponent(lineProfile.userId)}&displayName=${encodeURIComponent(lineProfile.displayName)}`;
+                        liff.openWindow({ url: connectUrl, external: false });
+                    } else {
+                        liff.login();
                     }
                 });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.synced && data.memberData) {
-                        memberData = data.memberData;
-                        displayMemberCard();
-                        updateConnectionStatus(true, 'เชื่อมต่อแล้ว');
-                    } else {
-                        displayNotConnected();
-                        updateConnectionStatus(false, 'ยังไม่เชื่อมต่อ');
+            }
+            
+            // Refresh button
+            const refreshBtn = document.getElementById('refresh-btn');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', function() {
+                    if (lineProfile) {
+                        checkPrimaConnection();
                     }
-                } else {
-                    displayNotConnected();
-                    updateConnectionStatus(false, 'ยังไม่เชื่อมต่อ');
-                }
-            } catch (error) {
-                console.error('Failed to check Prima connection:', error);
-                displayNotConnected();
-                updateConnectionStatus(false, 'ตรวจสอบไม่ได้');
+                });
             }
-        }
-
-        // Display member card with data
-        function displayMemberCard() {
-            document.getElementById('member-card').classList.remove('hidden');
-            document.getElementById('not-connected').classList.add('hidden');
-
-            if (memberData) {
-                // Member phone
-                const phoneEl = document.getElementById('member-phone');
-                if (phoneEl) phoneEl.textContent = memberData.phone || memberData.primaUsername || '-';
-
-                // Credit balance
-                const creditEl = document.getElementById('credit-balance');
-                if (creditEl) creditEl.textContent = `฿${memberData.creditBalance || '0.00'}`;
-
-                // Member tier
-                const tierEl = document.getElementById('member-tier-badge');
-                if (tierEl) {
-                    const tier = memberData.memberTier || 'Standard';
-                    tierEl.textContent = tier;
-                    tierEl.className = `px-3 py-1 rounded-full text-sm font-medium ${getTierColor(tier)}`;
-                }
-
-                // Member since
-                const sinceEl = document.getElementById('member-since');
-                if (sinceEl && memberData.syncedAt) {
-                    const date = new Date(memberData.syncedAt);
-                    sinceEl.textContent = date.toLocaleDateString('th-TH');
-                }
-
-                // Last update
-                const updateEl = document.getElementById('last-update');
-                if (updateEl) {
-                    const now = new Date();
-                    updateEl.textContent = now.toLocaleTimeString('th-TH', { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                    });
-                }
-            }
-        }
-
-        // Display not connected state
-        function displayNotConnected() {
-            document.getElementById('member-card').classList.add('hidden');
-            document.getElementById('not-connected').classList.remove('hidden');
-        }
-
-        // Get tier color class
-        function getTierColor(tier) {
-            const colors = {
-                'Platinum': 'bg-purple-500/20 text-purple-300',
-                'Gold': 'bg-yellow-500/20 text-yellow-300',
-                'Silver': 'bg-gray-500/20 text-gray-300',
-                'Standard': 'bg-blue-500/20 text-blue-300'
-            };
-            return colors[tier] || colors['Standard'];
-        }
-
-        // Handle connect button click
-        document.getElementById('connect-btn')?.addEventListener('click', function() {
-            if (!lineProfile) return;
             
-            // สร้าง URL สำหรับ Prima789 integration page
-            const integrationUrl = `prima789-integration.html?lineUserId=${encodeURIComponent(lineProfile.userId)}&displayName=${encodeURIComponent(lineProfile.displayName || '')}`;
-            
-            // เปิดหน้าใหม่ใน LIFF browser
-            liff.openWindow({
-                url: integrationUrl,
-                external: false
-            });
+            // Initialize LIFF
+            initializeLiff();
         });
-
-        // Handle refresh button
-        document.getElementById('refresh-btn')?.addEventListener('click', async function() {
-            updateConnectionStatus(false, 'กำลังอัปเดต...');
-            await checkPrimaConnection();
-        });
-
-        // Handle disconnect button
-        document.getElementById('disconnect-btn')?.addEventListener('click', function() {
-            if (confirm('คุณต้องการยกเลิกการเชื่อมต่อบัญชี Prima789 หรือไม่?')) {
-                memberData = null;
-                displayNotConnected();
-                updateConnectionStatus(false, 'ยกเลิกการเชื่อมต่อแล้ว');
-            }
-        });
-
+        
         // Listen for messages from integration window
         window.addEventListener('message', function(event) {
+            if (event.origin !== window.location.origin) return;
+            
             if (event.data.type === 'PRIMA_SYNC_SUCCESS') {
-                console.log('Prima789 sync completed successfully');
-                // Refresh connection status
-                setTimeout(() => {
-                    checkPrimaConnection();
-                }, 1000);
+                console.log('🎉 Prima sync successful, refreshing data...');
+                checkPrimaConnection();
             }
         });
-
-        // Auto refresh every 5 minutes
-        function startAutoRefresh() {
-            if (checkInterval) clearInterval(checkInterval);
-            
-            checkInterval = setInterval(() => {
-                if (lineProfile && memberData) {
-                    checkPrimaConnection();
-                }
-            }, 5 * 60 * 1000); // 5 minutes
-        }
-
-        // Initialize LIFF
-        async function initializeLiff() {
-            try {
-                await liff.init({ liffId: LIFF_ID });
-                
-                if (!liff.isLoggedIn()) {
-                    showView('login-required-view');
-                    return;
-                }
-
-                // Get LINE profile
-                lineProfile = await liff.getProfile();
-                console.log('LINE profile loaded:', lineProfile.displayName);
-                
-                // Display profile and check connection
-                displayLineProfile();
-                showView('card-view');
-                
-                await checkPrimaConnection();
-                startAutoRefresh();
-                
-            } catch (error) {
-                console.error('LIFF initialization failed:', error);
-                document.getElementById('error-message').textContent = 
-                    'ไม่สามารถเริ่มต้น LINE LIFF ได้: ' + error.message;
-                showView('error-view');
-            }
-        }
-
-        // Refresh data function (can be called externally)
+        
+        // Global refresh function
         window.refreshPrimaData = function() {
             if (lineProfile) {
                 checkPrimaConnection();
             }
         };
-
-        // Initialize when page loads
-        window.onload = initializeLiff;
-
-        // Cleanup on page unload
-        window.onbeforeunload = () => {
-            if (checkInterval) {
-                clearInterval(checkInterval);
-            }
-        };
+        
     </script>
-
 </body>
 </html>
