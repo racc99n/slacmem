@@ -285,11 +285,9 @@
             
             // Phone input handler
             phoneInput.addEventListener('input', handlePhoneInput);
-            phoneInput.addEventListener('blur', validatePhone);
             
             // PIN input handler
             pinInput.addEventListener('input', handlePinInput);
-            pinInput.addEventListener('blur', validatePin);
             
             // Form submit handler
             form.addEventListener('submit', handleFormSubmit);
@@ -299,7 +297,6 @@
         function handlePhoneInput(event) {
             let value = event.target.value.replace(/\D/g, '');
             
-            // Format phone number (xxx-xxx-xxxx)
             if (value.length > 3 && value.length <= 6) {
                 value = value.replace(/(\d{3})(\d+)/, '$1-$2');
             } else if (value.length > 6) {
@@ -311,14 +308,18 @@
             }
             
             event.target.value = value;
-            validatePhone();
+            
+            // CHANGE: Call updateSubmitButton() directly from the handler
+            updateSubmitButton();
         }
         
         // Handle PIN input
         function handlePinInput(event) {
             const value = event.target.value.replace(/\D/g, '');
             event.target.value = value.substring(0, 4);
-            validatePin();
+            
+            // CHANGE: Call updateSubmitButton() directly from the handler
+            updateSubmitButton();
         }
         
         // Validate phone number
@@ -329,14 +330,14 @@
             const isValid = /^0[689]\d{8}$/.test(phone);
             
             if (feedback) {
-                if (phone.length > 0 && isValid) {
+                if (isValid) {
                     feedback.classList.remove('hidden');
                 } else {
                     feedback.classList.add('hidden');
                 }
             }
             
-            updateSubmitButton();
+            // CHANGE: Removed the call to updateSubmitButton() to break the loop
             return isValid;
         }
         
@@ -348,14 +349,14 @@
             const isValid = /^\d{4}$/.test(pin);
             
             if (feedback) {
-                if (pin.length === 4 && isValid) {
+                if (isValid) {
                     feedback.classList.remove('hidden');
                 } else {
                     feedback.classList.add('hidden');
                 }
             }
             
-            updateSubmitButton();
+            // CHANGE: Removed the call to updateSubmitButton() to break the loop
             return isValid;
         }
         
@@ -396,7 +397,7 @@
                     },
                     body: JSON.stringify({
                         lineUserId: lineUserId,
-                        primaUsername: phone, // Using phone as username
+                        primaUsername: phone,
                         primaPhone: phone,
                         primaPin: pin
                     })
@@ -444,26 +445,20 @@
         
         // Show success view
         function showSuccessView(userData) {
-            // Hide form
             document.getElementById('connection-form').parentElement.classList.add('hidden');
             
-            // Show success view
             const successView = document.getElementById('success-view');
             successView.classList.remove('hidden');
             
-            // Populate user data
             document.getElementById('preview-phone').textContent = userData.phone || 'ไม่ระบุ';
             document.getElementById('preview-level').textContent = userData.level || 'STANDARD';
-            document.getElementById('preview-balance').textContent = `฿${userData.balance || '0.00'}`;
+            document.getElementById('preview-balance').textContent = `฿${(userData.balance || 0).toFixed(2)}`;
             
-            // Setup back button
             document.getElementById('back-btn').addEventListener('click', () => {
-                // Notify parent window
                 if (window.opener) {
                     window.opener.postMessage({ type: 'PRIMA_SYNC_SUCCESS' }, '*');
                     setTimeout(() => window.close(), 500);
                 } else {
-                    // Redirect to main card
                     window.location.href = '/prima789-liff-member-card.html';
                 }
             });
@@ -487,7 +482,6 @@
             
             container.appendChild(messageEl);
             
-            // Auto remove after 8 seconds
             setTimeout(() => {
                 if (messageEl.parentNode) {
                     messageEl.remove();
@@ -495,7 +489,6 @@
             }, 8000);
         }
         
-        // Get message styling classes
         function getMessageClasses(type) {
             const classes = {
                 'success': 'bg-green-900 bg-opacity-20 border border-green-500 border-opacity-30 text-green-300',
@@ -506,7 +499,6 @@
             return classes[type] || classes['info'];
         }
         
-        // Get message icon
         function getMessageIcon(type) {
             const icons = {
                 'success': '✅',
@@ -517,10 +509,8 @@
             return icons[type] || icons['info'];
         }
         
-        // Initialize on page load
         document.addEventListener('DOMContentLoaded', init);
         
-        // Cleanup on page unload
         window.addEventListener('beforeunload', () => {
             isConnecting = false;
         });
