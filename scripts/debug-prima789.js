@@ -9,7 +9,7 @@ async function testPrima789Connection() {
   const testConfigs = [
     {
       name: "Standard Configuration",
-      url: "https://prima789.net",
+      url: "https://api.prima789.net",
       options: {
         transports: ["polling"],
         forceNew: true,
@@ -18,7 +18,7 @@ async function testPrima789Connection() {
     },
     {
       name: "WebSocket + Polling",
-      url: "https://prima789.net",
+      url: "https://api.prima789.net",
       options: {
         transports: ["websocket", "polling"],
         forceNew: true,
@@ -27,7 +27,7 @@ async function testPrima789Connection() {
     },
     {
       name: "Polling Only (Long Timeout)",
-      url: "https://prima789.net",
+      url: "https://api.prima789.net",
       options: {
         transports: ["polling"],
         forceNew: true,
@@ -37,7 +37,7 @@ async function testPrima789Connection() {
     },
     {
       name: "With Different Path",
-      url: "https://prima789.net/socket.io",
+      url: "https://api.prima789.net/socket.io",
       options: {
         transports: ["polling"],
         forceNew: true,
@@ -46,7 +46,7 @@ async function testPrima789Connection() {
     },
     {
       name: "Direct Socket.IO",
-      url: "wss://prima789.net",
+      url: "wss://api.prima789.net",
       options: {
         transports: ["websocket"],
         forceNew: true,
@@ -129,10 +129,10 @@ async function testNetworkConnectivity() {
   console.log("=============================");
 
   const testUrls = [
-    "https://prima789.net",
-    "https://prima789.net/socket.io",
-    "https://prima789.net/health",
-    "https://prima789.net/api",
+    "https://api.prima789.net",
+    "https://api.prima789.net/socket.io",
+    "https://api.prima789.net/health",
+    "https://api.prima789.net/api",
   ];
 
   for (const url of testUrls) {
@@ -212,14 +212,14 @@ async function testAlternativeConnections() {
     console.log(`\n🤖 Testing with User-Agent: ${userAgent}`);
 
     try {
-      const socket = io("https://prima789.net", {
+      const socket = io("https://api.prima789.net", {
         transports: ["polling"],
         forceNew: true,
         timeout: 10000,
         extraHeaders: {
           "User-Agent": userAgent,
-          Origin: "https://prima789.net",
-          Referer: "https://prima789.net",
+          Origin: "https://api.prima789.net",
+          Referer: "https://api.prima789.net",
         },
       });
 

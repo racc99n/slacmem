@@ -359,7 +359,7 @@
 
     <script>
         // Configuration
-        const API_BASE_URL = '/.netlify/functions/api';
+        const API_BASE_URL = '/.netlify/functions/api'; // Replace with your actual Netlify Function URL
         // const PRIMA789_URL = 'https://prima789.net';
         
         // Global variables
@@ -411,10 +411,11 @@
             
             try {
                 const testSocket = io({
-                    path: "/socket.io/", // ระบุ path
+                    path: "/socket.io/",
                     transports: ['polling'],
                     timeout: 5000,
-                    forceNew: true
+                    forceNew: true,
+                    query: { "path": "/login" } // <-- เพิ่มบรรทัดนี้
                 });
                 
                 const timeout = setTimeout(() => {
@@ -550,211 +551,59 @@
             }
         }
         
-        // Main Prima789 authentication function
-        function authenticateAndGetData(phone, pin) {
-            return new Promise((resolve, reject) => {
-                showMessage('info', '🔗 เชื่อมต่อกับ Prima789.net...');
-                updatePrimaStatus('connecting', 'กำลังเชื่อมต่อ...');
-                
-                const socket = io({
-                    path: "/socket.io/", // ระบุ path
-                    transports: ['polling'],
-                    forceNew: true
-                });
-                
-                currentSocket = socket;
-                let fullMemberData = {};
-                let resolved = false;
-                
-                const timeout = setTimeout(() => {
-                    if (!resolved) {
-                        resolved = true;
-                        socket.disconnect();
-                        updatePrimaStatus('offline', 'การเชื่อมต่อหมดเวลา');
-                        reject({ success: false, message: 'การเชื่อมต่อหมดเวลา' });
-                    }
-                }, 20000);
-                
-                socket.on('connect', () => {
-                    showMessage('info', '📡 ส่งข้อมูลการเข้าสู่ระบบ...');
-                    updatePrimaStatus('online', 'ส่งข้อมูลเข้าสู่ระบบ...');
-                    socket.emit('login', { tel: phone, pin: pin });
-                });
-                
-                socket.on('cus return', (res) => {
-                    console.log('Prima789 cus return:', res);
-                    showMessage('info', '📋 ตรวจสอบข้อมูลผู้ใช้...');
-                    
-                    if (res.success) {
-                        fullMemberData.primaUsername = res.data.mm_user;
-                        fullMemberData.firstName = res.data.first_name;
-                        fullMemberData.lastName = res.data.last_name;
-                        fullMemberData.phone = phone;
-                        
-                        showMessage('success', '✅ ยืนยันตัวตนสำเร็จ');
-                        
-                        // Check if we have all data needed
-                        if (fullMemberData.creditBalance !== undefined && !resolved) {
-                            resolved = true;
-                            clearTimeout(timeout);
-                            socket.disconnect();
-                            updatePrimaStatus('online', 'เชื่อมต่อสำเร็จ');
-                            resolve({ success: true, data: fullMemberData });
-                        }
-                    } else {
-                        if (!resolved) {
-                            resolved = true;
-                            clearTimeout(timeout);
-                            socket.disconnect();
-                            updatePrimaStatus('offline', 'ข้อมูลไม่ถูกต้อง');
-                            reject({ success: false, message: 'เบอร์โทรศัพท์หรือรหัส PIN ไม่ถูกต้อง' });
-                        }
-                    }
-                });
-                
-                socket.on('credit_push', (res) => {
-                    console.log('Prima789 credit_push:', res);
-                    showMessage('info', '💰 ดึงข้อมูลยอดเครดิต...');
-                    
-                    if (res.success) {
-                        fullMemberData.creditBalance = parseFloat(res.data.total_credit) || 0;
-                        showMessage('success', `💰 ยอดเครดิต: ${fullMemberData.creditBalance.toLocaleString()} บาท`);
-                    }
-                    
-                    // Check if we have all data needed
-                    if (fullMemberData.primaUsername && !resolved) {
-                        resolved = true;
-                        clearTimeout(timeout);
-                        socket.disconnect();
-                        updatePrimaStatus('online', 'ดึงข้อมูลสำเร็จ');
-                        resolve({ success: true, data: fullMemberData });
-                    }
-                });
-                
-                socket.on('connect_error', (error) => {
-                    console.error('Prima789 connection error:', error);
-                    if (!resolved) {
-                        resolved = true;
-                        clearTimeout(timeout);
-                        updatePrimaStatus('offline', 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้');
-                        reject({ success: false, message: 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ Prima789 ได้' });
-                    }
-                });
-                
-                socket.on('disconnect', (reason) => {
-                    console.log('Prima789 disconnected:', reason);
-                    if (!resolved && reason !== 'io client disconnect') {
-                        resolved = true;
-                        clearTimeout(timeout);
-                        updatePrimaStatus('offline', 'การเชื่อมต่อถูกตัด');
-                        reject({ success: false, message: 'การเชื่อมต่อกับ Prima789 ถูกตัดขาด' });
-                    }
-                });
-            });
-        }
-        
         // Handle form submission
         async function handleFormSubmit(event) {
             event.preventDefault();
-            
             if (isConnecting) return;
+
+            const phoneInput = document.getElementById('phone-input');
+            const pinInput = document.getElementById('pin-input');
             
-            const phone = document.getElementById('phone-input').value.replace(/\D/g, '');
-            const pin = document.getElementById('pin-input').value;
-            
+            const phone = phoneInput.value.replace(/\D/g, '');
+            const pin = pinInput.value;
+
             if (!validatePhone(phone) || !validatePin(pin)) {
                 showMessage('error', 'กรุณากรอกข้อมูลให้ถูกต้อง');
                 return;
             }
-            
+
             isConnecting = true;
             showConnectingState();
             updateStepIndicator(3);
-            
+
             try {
-                // Step 1: Authenticate with Prima789
-                showMessage('info', '🎰 เชื่อมต่อกับ Prima789...');
-                const primaResult = await authenticateAndGetData(phone, pin);
-                
-                if (!primaResult.success) {
-                    throw new Error(primaResult.message);
-                }
-                
-                showMessage('success', '✅ การยืนยันตัวตนสำเร็จ');
-                
-                // Step 2: Save to database
-                showMessage('info', '💾 บันทึกข้อมูลลงฐานข้อมูล...');
-                
-                const memberData = primaResult.data;
-                const syncResult = await saveToDatabase({
-                    lineUserId: lineUserId,
-                    primaUsername: memberData.primaUsername,
-                    primaPhone: memberData.phone,
-                    creditBalance: memberData.creditBalance,
-                    firstName: memberData.firstName,
-                    lastName: memberData.lastName
-                });
-                
-                if (syncResult.success) {
-                    showMessage('success', '💾 บันทึกข้อมูลสำเร็จ');
-                    showSuccessView(syncResult.user);
-                } else {
-                    throw new Error(syncResult.message || 'ไม่สามารถบันทึกข้อมูลได้');
-                }
-                
-            } catch (error) {
-                console.error('Integration error:', error);
-                showMessage('error', error.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ');
-                resetFormState();
-            }
-        }
-        
-        // Save data to database via API
-        async function saveToDatabase(userData) {
-            try {
+                showMessage('info', 'กำลังตรวจสอบข้อมูลกับเซิร์ฟเวอร์ Prima789...');
+
+                // เรียก API ของเราเอง (Netlify Function) ซึ่งจะไปคุยกับ Prima789 ให้
                 const response = await fetch(`${API_BASE_URL}/user/sync`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        lineUserId: userData.lineUserId,
-                        primaUsername: userData.primaUsername,
-                        primaPhone: userData.primaPhone,
-                        primaPin: document.getElementById('pin-input').value // Don't store PIN, just for validation
+                        phone: phone,
+                        pin: pin
                     })
                 });
 
                 const result = await response.json();
-                
-                if (response.ok) {
-                    return {
-                        success: true,
-                        user: {
-                            username: userData.primaUsername,
-                            phone: userData.primaPhone,
-                            balance: userData.creditBalance,
-                            level: determineMemberTier(userData.creditBalance),
-                            firstName: userData.firstName,
-                            lastName: userData.lastName
-                        }
-                    };
-                } else {
-                    return {
-                        success: false,
-                        message: result.error?.message || 'Database save failed'
-                    };
+
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง');
                 }
+
+                showMessage('success', '✅ ยืนยันตัวตนสำเร็จ!');
                 
+                // แสดงหน้า Success ด้วยข้อมูลที่ได้จาก API ของเรา
+                showSuccessView(result.user); 
+
             } catch (error) {
-                console.error('Database save error:', error);
-                return {
-                    success: false,
-                    message: 'ไม่สามารถเชื่อมต่อกับฐานข้อมูลได้'
-                };
+                console.error('Integration error:', error);
+                showMessage('error', error.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ');
+                resetFormState();
             }
         }
-        
+
         // Determine member tier based on balance
         function determineMemberTier(balance) {
             const numBalance = parseFloat(balance) || 0;
